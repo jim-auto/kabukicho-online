@@ -22,6 +22,18 @@
       font-family: Inter, Arial, Helvetica, sans-serif;
     }
 
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        radial-gradient(circle at center, transparent 42%, rgba(0,0,0,0.46) 100%);
+      background-size: 100% 4px, 100% 100%;
+      mix-blend-mode: screen;
+    }
+
     #game {
       width: 100vw;
       height: 100vh;
@@ -38,13 +50,16 @@
       justify-content: space-between;
       gap: 12px;
       pointer-events: none;
+      z-index: 5;
     }
 
     .panel {
-      border: 1px solid rgba(36, 219, 255, 0.72);
+      border: 1px solid rgba(36, 219, 255, 0.80);
       border-radius: 8px;
-      background: rgba(7, 8, 15, 0.76);
-      box-shadow: 0 0 20px rgba(36, 219, 255, 0.20), inset 0 0 18px rgba(255, 42, 145, 0.10);
+      background:
+        linear-gradient(135deg, rgba(36, 219, 255, 0.13), transparent 34%),
+        rgba(7, 8, 15, 0.78);
+      box-shadow: 0 0 24px rgba(36, 219, 255, 0.24), inset 0 0 22px rgba(255, 42, 145, 0.14);
       backdrop-filter: blur(6px);
       padding: 12px;
     }
@@ -109,6 +124,7 @@
       opacity: 0;
       transition: opacity 140ms ease, transform 140ms ease;
       pointer-events: none;
+      z-index: 8;
     }
 
     .toast.show {
@@ -123,6 +139,7 @@
       display: grid;
       grid-template-columns: repeat(3, 72px);
       gap: 10px;
+      z-index: 7;
     }
 
     .btn {
@@ -130,12 +147,17 @@
       height: 64px;
       border: 1px solid rgba(36, 219, 255, 0.9);
       border-radius: 8px;
-      background: rgba(8, 10, 18, 0.84);
+      background: linear-gradient(180deg, rgba(30, 35, 54, 0.94), rgba(8, 10, 18, 0.88));
       color: white;
       font-size: 13px;
       font-weight: 900;
       box-shadow: 0 0 16px rgba(36, 219, 255, 0.28);
       cursor: pointer;
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: 0 0 24px rgba(255, 42, 145, 0.42);
     }
 
     .stick {
@@ -148,6 +170,7 @@
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.06);
       display: none;
+      z-index: 7;
     }
 
     .stick::after {
@@ -173,6 +196,7 @@
       font-weight: 800;
       text-align: center;
       pointer-events: none;
+      z-index: 6;
     }
 
     @media (max-width: 760px) {
@@ -279,6 +303,8 @@
     const particles = [];
     const npcs = [];
     const signs = [];
+    const buildings = [];
+    const rain = [];
 
     let dpr = 1;
     let last = performance.now();
@@ -292,7 +318,7 @@
     let touchMove = { x: 0, y: 0 };
 
     const player = {
-      x: world.w / 2,
+      x: world.w / 2 - 72,
       y: world.h - 260,
       r: 19,
       facing: 0,
@@ -355,7 +381,44 @@
       for (let i = 0; i < 34; i += 1) npcs.push(createNpc("customer"));
       for (let i = 0; i < 12; i += 1) npcs.push(createNpc("trouble"));
 
-      for (let i = 0; i < 36; i += 1) {
+      const nearStart = [
+        { type: "customer", x: player.x - 86, y: player.y - 42 },
+        { type: "customer", x: player.x + 78, y: player.y + 36 },
+        { type: "trouble", x: player.x + 112, y: player.y - 28 },
+        { type: "trouble", x: player.x - 130, y: player.y + 58 },
+      ];
+      for (let i = 0; i < nearStart.length; i += 1) {
+        npcs[i].type = nearStart[i].type;
+        npcs[i].label = nearStart[i].type === "trouble" ? troubleLabels[i % troubleLabels.length] : customerLabels[i % customerLabels.length];
+        npcs[i].x = nearStart[i].x;
+        npcs[i].y = nearStart[i].y;
+        npcs[i].color = nearStart[i].type === "trouble" ? "#ff472d" : "#24dbff";
+        npcs[i].vx = rand(-12, 12);
+        npcs[i].vy = rand(-10, 10);
+      }
+
+      for (let y = 120; y < world.h + 220; y += 145) {
+        for (const side of [-1, 1]) {
+          const depth = 1 - Math.min(0.45, y / world.h * 0.22);
+          const w = rand(190, 290) * depth;
+          const h = rand(190, 360) * depth;
+          const x = world.w / 2 + side * rand(430, 620);
+          const windows = [];
+          for (let yy = 28; yy < h - 20; yy += 30) {
+            for (let xx = 18; xx < w - 18; xx += 30) {
+              windows.push({
+                x: xx,
+                y: yy,
+                on: Math.random() < 0.54,
+                color: pick(neon),
+              });
+            }
+          }
+          buildings.push({ x, y, w, h, side, color: pick(neon), label: pick(["営業中", "No.1", "ネオン", "満席注意"]), windows });
+        }
+      }
+
+      for (let i = 0; i < 46; i += 1) {
         const side = i % 2 === 0 ? -1 : 1;
         const row = Math.floor(i / 2);
         signs.push({
@@ -365,6 +428,16 @@
           h: rand(34, 56),
           color: pick(neon),
           text: pick(["ホストバトル", "No.1", "ツッコミSHOW", "客ラッシュ", "カオス", "ネオン王"]),
+        });
+      }
+
+      for (let i = 0; i < 140; i += 1) {
+        rain.push({
+          x: rand(0, world.w),
+          y: rand(0, world.h),
+          speed: rand(520, 860),
+          len: rand(12, 28),
+          alpha: rand(0.12, 0.34),
         });
       }
     }
@@ -506,6 +579,15 @@
         }
       }
 
+      for (const drop of rain) {
+        drop.y += drop.speed * dt;
+        drop.x -= drop.speed * dt * 0.18;
+        if (drop.y > world.h + 80 || drop.x < -80) {
+          drop.y = rand(-160, 0);
+          drop.x = rand(0, world.w);
+        }
+      }
+
       for (let i = particles.length - 1; i >= 0; i -= 1) {
         const p = particles[i];
         p.life -= dt;
@@ -539,16 +621,100 @@
       ctx.closePath();
     }
 
-    function drawBuilding(x, y, w, h, color) {
-      ctx.fillStyle = "#151622";
-      ctx.fillRect(x, y - h, w, h);
-      ctx.strokeStyle = "rgba(255,255,255,0.09)";
-      ctx.strokeRect(x, y - h, w, h);
-      for (let yy = y - h + 22; yy < y - 20; yy += 34) {
-        for (let xx = x + 14; xx < x + w - 16; xx += 34) {
-          ctx.fillStyle = Math.random() < 0.45 ? color : "rgba(255,255,255,0.08)";
-          ctx.fillRect(xx, yy, 14, 18);
-        }
+    function drawBuilding(building) {
+      const x = building.x;
+      const y = building.y;
+      const w = building.w;
+      const h = building.h;
+      const sideDepth = building.side * 24;
+      const body = ctx.createLinearGradient(x, y - h, x + w, y);
+      body.addColorStop(0, "#10111c");
+      body.addColorStop(0.55, "#1b1c2a");
+      body.addColorStop(1, "#090a11");
+
+      ctx.save();
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y - h);
+      ctx.lineTo(x + w, y - h - 16);
+      ctx.lineTo(x + w + sideDepth, y - 10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      ctx.beginPath();
+      ctx.moveTo(x + w, y - h - 16);
+      ctx.lineTo(x + w + sideDepth, y - 10);
+      ctx.lineTo(x + w + sideDepth, y + 2);
+      ctx.lineTo(x + w, y);
+      ctx.closePath();
+      ctx.fill();
+
+      for (const windowInfo of building.windows) {
+        const wx = x + windowInfo.x;
+        const wy = y - h + windowInfo.y;
+        ctx.fillStyle = windowInfo.on ? windowInfo.color : "rgba(255,255,255,0.07)";
+        ctx.shadowBlur = windowInfo.on ? 10 : 0;
+        ctx.shadowColor = windowInfo.color;
+        ctx.fillRect(wx, wy, 14, 18);
+      }
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = building.color;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = building.color;
+      drawRoundRect(x + 18, y - h + 18, Math.min(150, w - 36), 34, 5);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = building.color === "#ffe63e" || building.color === "#5bff7b" ? "#111" : "#fff";
+      ctx.font = "900 15px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(building.label, x + 18 + Math.min(150, w - 36) / 2, y - h + 40);
+      ctx.restore();
+    }
+
+    function drawGround(cam) {
+      const roadLeft = world.w / 2 - 270;
+      const roadRight = world.w / 2 + 270;
+      const sideLeft = world.w / 2 - 380;
+      const sideRight = world.w / 2 + 380;
+
+      const asphalt = ctx.createLinearGradient(0, -cam.y, 0, world.h - cam.y);
+      asphalt.addColorStop(0, "#343541");
+      asphalt.addColorStop(0.55, "#1f2028");
+      asphalt.addColorStop(1, "#09090d");
+      ctx.fillStyle = asphalt;
+      ctx.fillRect(roadLeft, 0, roadRight - roadLeft, world.h);
+
+      ctx.fillStyle = "#30313a";
+      ctx.fillRect(sideLeft, 0, roadLeft - sideLeft, world.h);
+      ctx.fillRect(roadRight, 0, sideRight - roadRight, world.h);
+
+      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      for (let y = 0; y < world.h; y += 44) {
+        ctx.fillRect(sideLeft, y, roadLeft - sideLeft, 1);
+        ctx.fillRect(roadRight, y, sideRight - roadRight, 1);
+      }
+
+      ctx.fillStyle = "#ffe63e";
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "#ffe63e";
+      for (let y = 40; y < world.h; y += 84) ctx.fillRect(world.w / 2 - 7, y, 14, 42);
+      ctx.shadowBlur = 0;
+
+      for (let y = 80; y < world.h; y += 170) {
+        const reflection = ctx.createLinearGradient(world.w / 2 - 180, y, world.w / 2 + 180, y + 70);
+        reflection.addColorStop(0, "rgba(255,42,145,0)");
+        reflection.addColorStop(0.45, "rgba(255,42,145,0.20)");
+        reflection.addColorStop(1, "rgba(36,219,255,0)");
+        ctx.fillStyle = reflection;
+        ctx.beginPath();
+        ctx.ellipse(world.w / 2 + Math.sin(y) * 90, y + 50, 170, 28, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
@@ -556,20 +722,32 @@
       const x = npc.x - cam.x;
       const y = npc.y - cam.y;
       ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.34)";
+      ctx.beginPath();
+      ctx.ellipse(x, y + npc.r * 1.35, npc.r * 1.35, npc.r * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.shadowBlur = 16;
       ctx.shadowColor = npc.color;
       ctx.fillStyle = npc.color;
       drawRoundRect(x - npc.r, y - npc.r * 1.4, npc.r * 2, npc.r * 2.8, 8);
       ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.24)";
+      ctx.fillRect(x - npc.r + 5, y - npc.r * 1.2, 5, npc.r * 2.3);
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#ffd6b8";
       ctx.beginPath();
       ctx.arc(x, y - npc.r * 1.75, npc.r * 0.64, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "#1b1010";
+      ctx.fillRect(x - 6, y - npc.r * 1.84, 3, 3);
+      ctx.fillRect(x + 4, y - npc.r * 1.84, 3, 3);
       if (distance(player, npc) < (npc.type === "trouble" ? 92 : 68)) {
-        ctx.font = "800 12px Arial";
+        ctx.font = "900 13px Arial";
         ctx.textAlign = "center";
         ctx.fillStyle = npc.type === "trouble" ? "#ffe63e" : "#ffffff";
+        ctx.strokeStyle = "rgba(0,0,0,0.72)";
+        ctx.lineWidth = 4;
+        ctx.strokeText(npc.type === "trouble" ? "ツッコミ" : "客引き", x, y - npc.r * 2.6);
         ctx.fillText(npc.type === "trouble" ? "ツッコミ" : "客引き", x, y - npc.r * 2.6);
       }
       ctx.restore();
@@ -581,6 +759,17 @@
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(player.facing);
+      ctx.strokeStyle = "rgba(255,230,62,0.82)";
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = "#ffe63e";
+      ctx.beginPath();
+      ctx.arc(0, 0, 34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(0,0,0,0.38)";
+      ctx.beginPath();
+      ctx.ellipse(0, 31, 31, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.shadowBlur = poseUntil > performance.now() ? 30 : 18;
       ctx.shadowColor = "#ff2a91";
       ctx.fillStyle = "#ff2a91";
@@ -588,11 +777,18 @@
       ctx.fill();
       ctx.fillStyle = "#ffe63e";
       ctx.fillRect(-17, -27, 34, 13);
+      ctx.fillStyle = "#11121b";
+      ctx.fillRect(-14, -5, 28, 7);
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#ffd6b8";
       ctx.beginPath();
       ctx.arc(0, -42, 14, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "#261515";
+      ctx.fillRect(-6, -46, 4, 4);
+      ctx.fillRect(4, -46, 4, 4);
+      ctx.fillStyle = "#111";
+      ctx.fillRect(-11, -58, 22, 7);
       if (dashUntil > performance.now()) {
         ctx.strokeStyle = "#24dbff";
         ctx.lineWidth = 4;
@@ -601,6 +797,16 @@
         ctx.lineTo(-20, 0);
         ctx.stroke();
       }
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = "900 14px Arial";
+      ctx.textAlign = "center";
+      ctx.strokeStyle = "rgba(0,0,0,0.84)";
+      ctx.lineWidth = 4;
+      ctx.strokeText("あなた", x, y - 70);
+      ctx.fillStyle = "#ffe63e";
+      ctx.fillText("あなた", x, y - 70);
       ctx.restore();
     }
 
@@ -624,17 +830,26 @@
 
       ctx.save();
       ctx.translate(-cam.x, -cam.y);
-      ctx.fillStyle = "#24242d";
-      ctx.fillRect(world.w / 2 - 260, 0, 520, world.h);
-      ctx.fillStyle = "#30313a";
-      ctx.fillRect(world.w / 2 - 360, 0, 90, world.h);
-      ctx.fillRect(world.w / 2 + 270, 0, 90, world.h);
-      ctx.fillStyle = "#ffe63e";
-      for (let y = 40; y < world.h; y += 84) ctx.fillRect(world.w / 2 - 7, y, 14, 42);
+      drawGround(cam);
 
-      for (let y = 190; y < world.h; y += 180) {
-        drawBuilding(world.w / 2 - 650, y, 210, 160 + (y % 3) * 28, "#24dbff");
-        drawBuilding(world.w / 2 + 440, y, 210, 180 + (y % 5) * 22, "#ff2a91");
+      for (const building of buildings) {
+        drawBuilding(building);
+      }
+
+      for (let y = 120; y < world.h; y += 260) {
+        for (const gateColor of ["#24dbff", "#ff2a91"]) {
+          ctx.strokeStyle = gateColor;
+          ctx.lineWidth = 5;
+          ctx.shadowBlur = 18;
+          ctx.shadowColor = gateColor;
+          ctx.beginPath();
+          ctx.moveTo(world.w / 2 - 250, y);
+          ctx.lineTo(world.w / 2 - 250, y - 92);
+          ctx.lineTo(world.w / 2 + 250, y - 92);
+          ctx.lineTo(world.w / 2 + 250, y);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
       }
 
       for (const sign of signs) {
@@ -653,8 +868,19 @@
       }
 
       const sorted = [...npcs].sort((a, b) => a.y - b.y);
-      for (const npc of sorted) drawNpc(npc, cam);
-      drawPlayer(cam);
+      for (const npc of sorted) drawNpc(npc, { x: 0, y: 0 });
+      drawPlayer({ x: 0, y: 0 });
+
+      ctx.strokeStyle = "rgba(180,220,255,0.28)";
+      ctx.lineWidth = 1;
+      for (const drop of rain) {
+        ctx.globalAlpha = drop.alpha;
+        ctx.beginPath();
+        ctx.moveTo(drop.x, drop.y);
+        ctx.lineTo(drop.x - drop.len * 0.25, drop.y + drop.len);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
 
       for (const p of particles) {
         ctx.globalAlpha = Math.max(0, p.life);

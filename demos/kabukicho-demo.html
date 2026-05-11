@@ -29,6 +29,29 @@
         linear-gradient(#111123 0%, #090914 44%, #15151b 45%, #060607 100%);
     }
 
+    .scene::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(110deg, rgba(190, 230, 255, 0.18) 0 1px, transparent 1px 28px),
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 4px;
+      mix-blend-mode: screen;
+      animation: rainShift 0.75s linear infinite;
+    }
+
+    .scene::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 11;
+      pointer-events: none;
+      background: radial-gradient(circle at center, transparent 42%, rgba(0, 0, 0, 0.42) 100%);
+    }
+
     .title {
       position: absolute;
       left: 26px;
@@ -115,6 +138,8 @@
       bottom: 0;
       height: 190px;
       background:
+        radial-gradient(ellipse at 40% 50%, rgba(255,42,145,0.30), transparent 22%),
+        radial-gradient(ellipse at 62% 62%, rgba(36,219,255,0.26), transparent 26%),
         linear-gradient(90deg, transparent 0 48%, #ffe63e 48% 52%, transparent 52%),
         linear-gradient(#26262c, #09090c);
       transform: perspective(380px) rotateX(42deg);
@@ -129,7 +154,7 @@
       width: 52px;
       height: 78px;
       border-radius: 14px 14px 8px 8px;
-      background: linear-gradient(#ffe63e 0 22%, #ff2a91 22% 100%);
+      background: linear-gradient(#111 0 9%, #ffe63e 9% 25%, #ff2a91 25% 100%);
       box-shadow: 0 0 18px #ff2a91;
       animation: dash 2.2s ease-in-out infinite;
     }
@@ -287,6 +312,11 @@
     @keyframes fall {
       from { top: -24px; }
       to { top: 386px; }
+    }
+
+    @keyframes rainShift {
+      from { background-position: 0 0, 0 0; }
+      to { background-position: -24px 42px, 0 4px; }
     }
 
     @keyframes bonked {
