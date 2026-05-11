@@ -1,0 +1,27 @@
+{
+  "name": "kabukicho-online",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "KabukichoOnline": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "KabukichoOnline": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "KabukichoOnlineClient": {
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}

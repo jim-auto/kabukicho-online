@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kabukicho Online Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #07070d;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #fff;
+    }
+
+    .scene {
+      position: relative;
+      width: 800px;
+      height: 450px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 35% 18%, rgba(255, 42, 145, 0.36), transparent 24%),
+        radial-gradient(circle at 74% 20%, rgba(36, 219, 255, 0.30), transparent 26%),
+        linear-gradient(#101020 0%, #090914 44%, #141414 45%, #060607 100%);
+    }
+
+    .title {
+      position: absolute;
+      left: 26px;
+      top: 22px;
+      z-index: 8;
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: 0;
+      color: #24dbff;
+      text-shadow: 0 0 14px #24dbff, 0 0 24px #ff2a91;
+    }
+
+    .subtitle {
+      position: absolute;
+      left: 28px;
+      top: 58px;
+      z-index: 8;
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffe63e;
+    }
+
+    .hud {
+      position: absolute;
+      right: 22px;
+      top: 22px;
+      z-index: 8;
+      width: 210px;
+      padding: 12px 14px;
+      border: 2px solid #24dbff;
+      border-radius: 8px;
+      background: rgba(8, 8, 16, 0.78);
+      box-shadow: 0 0 18px rgba(36, 219, 255, 0.45);
+      font-size: 14px;
+      line-height: 1.75;
+      font-weight: 800;
+    }
+
+    .ranking {
+      color: #ffe63e;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .building {
+      position: absolute;
+      bottom: 112px;
+      width: 100px;
+      background: #171724;
+      border: 1px solid #2c2c40;
+    }
+
+    .building.left-1 { left: 20px; height: 230px; }
+    .building.left-2 { left: 136px; height: 190px; }
+    .building.left-3 { left: 258px; height: 245px; }
+    .building.right-1 { right: 24px; height: 220px; }
+    .building.right-2 { right: 142px; height: 178px; }
+    .building.right-3 { right: 260px; height: 232px; }
+
+    .sign {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      height: 34px;
+      top: 26px;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 900;
+      color: white;
+      border-radius: 4px;
+      animation: flicker 1s infinite alternate;
+    }
+
+    .pink { background: #ff2a91; box-shadow: 0 0 16px #ff2a91; }
+    .cyan { background: #24dbff; box-shadow: 0 0 16px #24dbff; color: #071018; }
+    .yellow { background: #ffe63e; box-shadow: 0 0 16px #ffe63e; color: #111; }
+    .green { background: #5bff7b; box-shadow: 0 0 16px #5bff7b; color: #111; }
+
+    .street {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 190px;
+      background:
+        linear-gradient(90deg, transparent 0 48%, #ffe63e 48% 52%, transparent 52%),
+        linear-gradient(#26262c, #09090c);
+      transform: perspective(380px) rotateX(42deg);
+      transform-origin: bottom center;
+    }
+
+    .avatar {
+      position: absolute;
+      left: 368px;
+      bottom: 70px;
+      z-index: 7;
+      width: 52px;
+      height: 78px;
+      border-radius: 14px 14px 8px 8px;
+      background: linear-gradient(#ffe63e 0 22%, #ff2a91 22% 100%);
+      box-shadow: 0 0 18px #ff2a91;
+      animation: dash 2.4s ease-in-out infinite;
+    }
+
+    .avatar::before {
+      content: "";
+      position: absolute;
+      left: 13px;
+      top: -26px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #ffd8b8;
+    }
+
+    .npc {
+      position: absolute;
+      z-index: 6;
+      width: 34px;
+      height: 58px;
+      border-radius: 10px 10px 6px 6px;
+      background: #24dbff;
+      box-shadow: 0 0 14px #24dbff;
+      animation: crowd 3s linear infinite;
+    }
+
+    .npc::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: -18px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #f7c6a5;
+    }
+
+    .npc.a { left: 190px; bottom: 86px; animation-delay: -0.5s; background: #5bff7b; box-shadow: 0 0 14px #5bff7b; }
+    .npc.b { left: 560px; bottom: 92px; animation-delay: -1.2s; background: #ffe63e; box-shadow: 0 0 14px #ffe63e; }
+    .npc.c { left: 96px; bottom: 60px; animation-delay: -1.9s; background: #ff2a91; box-shadow: 0 0 14px #ff2a91; }
+
+    .event {
+      position: absolute;
+      left: 50%;
+      top: 105px;
+      z-index: 9;
+      transform: translateX(-50%);
+      padding: 10px 18px;
+      border-radius: 8px;
+      background: #ff2a91;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: 0 0 22px #ff2a91;
+      animation: eventPop 4s infinite;
+    }
+
+    .coin {
+      position: absolute;
+      z-index: 5;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffe63e;
+      box-shadow: 0 0 10px #ffe63e;
+      animation: fall 1.7s linear infinite;
+    }
+
+    .coin:nth-child(1) { left: 120px; animation-delay: -0.2s; }
+    .coin:nth-child(2) { left: 270px; animation-delay: -0.8s; }
+    .coin:nth-child(3) { left: 430px; animation-delay: -1.2s; }
+    .coin:nth-child(4) { left: 650px; animation-delay: -0.5s; }
+
+    .buttons {
+      position: absolute;
+      right: 22px;
+      bottom: 20px;
+      z-index: 8;
+      display: flex;
+      gap: 10px;
+    }
+
+    .button {
+      width: 72px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border: 2px solid #24dbff;
+      border-radius: 8px;
+      background: rgba(8, 8, 16, 0.86);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      box-shadow: 0 0 14px rgba(36, 219, 255, 0.5);
+    }
+
+    @keyframes flicker {
+      from { filter: brightness(0.85); }
+      to { filter: brightness(1.35); }
+    }
+
+    @keyframes dash {
+      0%, 100% { transform: translateX(-70px) rotate(-2deg); }
+      45% { transform: translateX(88px) rotate(3deg); }
+      60% { transform: translateX(114px) rotate(10deg); }
+    }
+
+    @keyframes crowd {
+      from { transform: translateX(-28px); }
+      to { transform: translateX(44px); }
+    }
+
+    @keyframes eventPop {
+      0%, 22% { opacity: 0; transform: translateX(-50%) scale(0.75); }
+      30%, 78% { opacity: 1; transform: translateX(-50%) scale(1); }
+      100% { opacity: 0; transform: translateX(-50%) scale(1.08); }
+    }
+
+    @keyframes fall {
+      from { top: -24px; }
+      to { top: 386px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="scene">
+    <div class="title">KABUKICHO ONLINE</div>
+    <div class="subtitle">Roblox Night City Action MMO Prototype</div>
+
+    <section class="hud">
+      <div class="ranking">SERVER RANKING</div>
+      <div>1. NeonKing Rep 420</div>
+      <div>2. ViralHost Rep 350</div>
+      <div>Money: 12,800</div>
+      <div>Club Rank: 7</div>
+    </section>
+
+    <div class="building left-1"><div class="sign pink">HOST BATTLE</div></div>
+    <div class="building left-2"><div class="sign cyan">FAN RUSH</div></div>
+    <div class="building left-3"><div class="sign yellow">NO.1 RANK</div></div>
+    <div class="building right-1"><div class="sign green">NEON KING</div></div>
+    <div class="building right-2"><div class="sign pink">CHAOS</div></div>
+    <div class="building right-3"><div class="sign cyan">TYCOON</div></div>
+
+    <div class="street"></div>
+    <div class="npc a"></div>
+    <div class="npc b"></div>
+    <div class="npc c"></div>
+    <div class="avatar"></div>
+    <div class="event">CASH RAIN EVENT!</div>
+    <div class="coin"></div>
+    <div class="coin"></div>
+    <div class="coin"></div>
+    <div class="coin"></div>
+
+    <div class="buttons">
+      <div class="button">DASH</div>
+      <div class="button">PUSH</div>
+      <div class="button">POSE</div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,20 @@
+local RemoteBootstrap = require(script.Parent.RemoteBootstrap)
+local WorldBuilder = require(script.Parent.WorldBuilder)
+local PlayerDataService = require(script.Parent.PlayerDataService)
+local EconomyService = require(script.Parent.EconomyService)
+local RankingService = require(script.Parent.RankingService)
+local NPCService = require(script.Parent.NPCService)
+local PvPService = require(script.Parent.PvPService)
+local ChaosEventService = require(script.Parent.ChaosEventService)
+
+math.randomseed(os.time())
+
+local remotes = RemoteBootstrap.init()
+
+WorldBuilder.init()
+PlayerDataService.init(remotes)
+EconomyService.init(remotes, PlayerDataService)
+RankingService.init(remotes, PlayerDataService)
+PvPService.init(remotes)
+NPCService.init(EconomyService)
+ChaosEventService.init(remotes, EconomyService)

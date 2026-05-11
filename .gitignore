@@ -1,0 +1,8 @@
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+.vscode/
+.idea/
+node_modules/
+*.log

@@ -1,0 +1,29 @@
+{
+  "name": "kabukicho-online",
+  "version": "1.0.0",
+  "description": "Roblox向けの夜街ソーシャルアクションMMOプロトタイプです。恋愛・出会い目的ではなく、評判、カリスマ、店ランキング、PvP、カオスイベントで盛り上がる短時間プレイを軸にしています。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "capture:demo": "node scripts/capture-demo.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jim-auto/kabukicho-online.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jim-auto/kabukicho-online/issues"
+  },
+  "homepage": "https://github.com/jim-auto/kabukicho-online#readme",
+  "devDependencies": {
+    "gif-encoder-2": "^1.0.5",
+    "playwright": "^1.60.0",
+    "pngjs": "^7.0.0"
+  }
+}
