@@ -36,6 +36,7 @@ npm run smoke:pages
 - 三人称標準移動に加えたダッシュ
 - 近距離BONK/PUSH PvP
 - 迷惑NPCをコメディ調に退場させるTroublePoints
+- AI生成キャラ画像によるプレイヤー/客/迷惑NPCスプライト
 - NPC群衆とProximityPromptによる客集め
 - Money / Reputation / Charisma / ClubRank
 - ランキング取得

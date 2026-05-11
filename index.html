@@ -307,6 +307,14 @@
     const rain = [];
     const cityBackground = new Image();
     cityBackground.src = "assets/generated/neon-city-bg.png";
+    const sprites = {
+      player: new Image(),
+      customer: new Image(),
+      trouble: new Image(),
+    };
+    sprites.player.src = "assets/characters/player-host.png";
+    sprites.customer.src = "assets/characters/customer.png";
+    sprites.trouble.src = "assets/characters/troublemaker.png";
 
     let dpr = 1;
     let last = performance.now();
@@ -317,6 +325,7 @@
     let dashUntil = 0;
     let dashCooldown = 0;
     let bonkCooldown = 0;
+    let lastInteraction = null;
     let touchMove = { x: 0, y: 0 };
 
     const player = {
@@ -365,13 +374,16 @@
       return {
         type,
         label: trouble ? pick(troubleLabels) : pick(customerLabels),
-        x: rand(220, world.w - 220),
+        x: rand(world.w / 2 - 285, world.w / 2 + 285),
         y: rand(260, world.h - 170),
         r: trouble ? 18 : 16,
         color: trouble ? pick(["#ff472d", "#ff742a", "#ff2a91", "#ffe63e"]) : pick(["#24dbff", "#5bff7b", "#ffe63e", "#ff2a91"]),
         vx: rand(-28, 28),
         vy: rand(-24, 24),
         claimed: false,
+        hitUntil: 0,
+        knockX: 0,
+        knockY: 0,
       };
     }
 
@@ -467,17 +479,33 @@
       return Math.hypot(a.x - b.x, a.y - b.y);
     }
 
-    function scout() {
+    function nearestNpc(kind, range) {
       let target = null;
-      let best = 62;
+      let best = range;
+      const now = performance.now();
       for (const npc of npcs) {
-        if (npc.type !== "customer") continue;
+        if (npc.hitUntil > now) continue;
+        if (kind && npc.type !== kind) continue;
         const d = distance(player, npc);
         if (d < best) {
           best = d;
           target = npc;
         }
       }
+      return target;
+    }
+
+    function interact() {
+      const trouble = nearestNpc("trouble", 92);
+      if (trouble) {
+        bonk();
+        return;
+      }
+      scout();
+    }
+
+    function scout() {
+      const target = nearestNpc("customer", 72);
       if (!target) return;
 
       const bonus = chaosUntil > performance.now() ? 2 : 1;
@@ -488,7 +516,9 @@
       if (Math.random() < 0.28) player.charisma += 1;
       player.combo = Math.min(3, player.combo + 0.1);
       spawnParticle(target.x, target.y, `+${money}円 評判+${rep}`, "#ffe63e");
+      spawnParticle((player.x + target.x) / 2, (player.y + target.y) / 2 - 22, "来店!", "#24dbff");
       showToast(`客引き成功: ${target.label}`, "#24dbff");
+      lastInteraction = { type: "scout", x1: player.x, y1: player.y - 54, x2: target.x, y2: target.y - 70, until: performance.now() + 520 };
       resetNpc(target, "customer");
     }
 
@@ -499,21 +529,23 @@
 
       let hit = false;
       for (const npc of npcs) {
-        if (npc.type !== "trouble") continue;
+        if (npc.type !== "trouble" || npc.hitUntil > now) continue;
         const d = distance(player, npc);
         if (d > 88) continue;
         const dx = npc.x - player.x || Math.cos(player.facing);
         const dy = npc.y - player.y || Math.sin(player.facing);
         const len = Math.hypot(dx, dy) || 1;
-        npc.x += (dx / len) * 95;
-        npc.y += (dy / len) * 95;
+        npc.knockX = (dx / len) * 170;
+        npc.knockY = (dy / len) * 170 - 60;
+        npc.hitUntil = now + 460;
         player.trouble += npc.label === "クソ客" ? 2 : 1;
         player.rep += npc.label === "クソ客" ? 16 : 11;
         player.money += 10;
         player.combo = Math.min(3, player.combo + 0.18);
         spawnParticle(npc.x, npc.y, npc.label === "クソ客" ? "退治+2" : "退治+1", "#ffef63");
+        spawnParticle((player.x + npc.x) / 2, (player.y + npc.y) / 2 - 36, "ドンッ!", "#ff472d");
         showToast(`${npc.label}をツッコミ退場！`, "#ff472d");
-        resetNpc(npc, "trouble");
+        lastInteraction = { type: "bonk", x1: player.x, y1: player.y - 48, x2: npc.x, y2: npc.y - 58, until: now + 320 };
         hit = true;
       }
 
@@ -571,6 +603,16 @@
       if (nextChaos <= 0) startChaos();
 
       for (const npc of npcs) {
+        if (npc.hitUntil > now) {
+          npc.x += npc.knockX * dt;
+          npc.y += npc.knockY * dt;
+          npc.knockY += 460 * dt;
+          continue;
+        } else if (npc.hitUntil !== 0) {
+          resetNpc(npc, npc.type);
+          continue;
+        }
+
         npc.x += npc.vx * dt;
         npc.y += npc.vy * dt;
         if (npc.x < 120 || npc.x > world.w - 120) npc.vx *= -1;
@@ -760,27 +802,51 @@
     function drawNpc(npc, cam) {
       const x = npc.x - cam.x;
       const y = npc.y - cam.y;
+      const sprite = npc.type === "trouble" ? sprites.trouble : sprites.customer;
+      const now = performance.now();
+      const isHit = npc.hitUntil > now;
+      const active = nearestNpc(npc.type, npc.type === "trouble" ? 92 : 72) === npc;
+
       ctx.save();
+      if (isHit) {
+        ctx.translate(x, y);
+        ctx.rotate(Math.sin(now / 40) * 0.32);
+        ctx.translate(-x, -y);
+      }
       ctx.fillStyle = "rgba(0,0,0,0.34)";
       ctx.beginPath();
       ctx.ellipse(x, y + npc.r * 1.35, npc.r * 1.35, npc.r * 0.42, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = 16;
-      ctx.shadowColor = npc.color;
-      ctx.fillStyle = npc.color;
-      drawRoundRect(x - npc.r, y - npc.r * 1.4, npc.r * 2, npc.r * 2.8, 8);
-      ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.24)";
-      ctx.fillRect(x - npc.r + 5, y - npc.r * 1.2, 5, npc.r * 2.3);
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#ffd6b8";
-      ctx.beginPath();
-      ctx.arc(x, y - npc.r * 1.75, npc.r * 0.64, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#1b1010";
-      ctx.fillRect(x - 6, y - npc.r * 1.84, 3, 3);
-      ctx.fillRect(x + 4, y - npc.r * 1.84, 3, 3);
-      if (distance(player, npc) < (npc.type === "trouble" ? 92 : 68)) {
+
+      if (active) {
+        ctx.strokeStyle = npc.type === "trouble" ? "#ffef63" : "#24dbff";
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.arc(x, y + 4, npc.type === "trouble" ? 46 : 40, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (sprite.complete && sprite.naturalWidth > 0) {
+        const size = npc.type === "trouble" ? 102 : 94;
+        const aspect = sprite.naturalWidth / sprite.naturalHeight;
+        const drawH = size;
+        const drawW = drawH * aspect;
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = npc.type === "trouble" ? "#ff472d" : "#24dbff";
+        ctx.drawImage(sprite, x - drawW / 2, y - drawH + 30, drawW, drawH);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = npc.color;
+        ctx.fillStyle = npc.color;
+        drawRoundRect(x - npc.r, y - npc.r * 1.4, npc.r * 2, npc.r * 2.8, 8);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      if (active && !isHit) {
         ctx.font = "900 13px Arial";
         ctx.textAlign = "center";
         ctx.fillStyle = npc.type === "trouble" ? "#ffe63e" : "#ffffff";
@@ -788,6 +854,11 @@
         ctx.lineWidth = 4;
         ctx.strokeText(npc.type === "trouble" ? "ツッコミ" : "客引き", x, y - npc.r * 2.6);
         ctx.fillText(npc.type === "trouble" ? "ツッコミ" : "客引き", x, y - npc.r * 2.6);
+
+        ctx.font = "900 12px Arial";
+        ctx.strokeText(npc.label, x, y + 44);
+        ctx.fillStyle = npc.type === "trouble" ? "#ffef63" : "#dffcff";
+        ctx.fillText(npc.label, x, y + 44);
       }
       ctx.restore();
     }
@@ -809,25 +880,24 @@
       ctx.beginPath();
       ctx.ellipse(0, 31, 31, 10, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = poseUntil > performance.now() ? 30 : 18;
-      ctx.shadowColor = "#ff2a91";
-      ctx.fillStyle = "#ff2a91";
-      drawRoundRect(-19, -27, 38, 56, 10);
-      ctx.fill();
-      ctx.fillStyle = "#ffe63e";
-      ctx.fillRect(-17, -27, 34, 13);
-      ctx.fillStyle = "#11121b";
-      ctx.fillRect(-14, -5, 28, 7);
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#ffd6b8";
-      ctx.beginPath();
-      ctx.arc(0, -42, 14, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#261515";
-      ctx.fillRect(-6, -46, 4, 4);
-      ctx.fillRect(4, -46, 4, 4);
-      ctx.fillStyle = "#111";
-      ctx.fillRect(-11, -58, 22, 7);
+      if (sprites.player.complete && sprites.player.naturalWidth > 0) {
+        const drawH = poseUntil > performance.now() ? 126 : 116;
+        const drawW = drawH * (sprites.player.naturalWidth / sprites.player.naturalHeight);
+        ctx.rotate(-player.facing);
+        ctx.shadowBlur = poseUntil > performance.now() ? 34 : 24;
+        ctx.shadowColor = "#ff2a91";
+        ctx.drawImage(sprites.player, -drawW / 2, -drawH + 38, drawW, drawH);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.shadowBlur = poseUntil > performance.now() ? 30 : 18;
+        ctx.shadowColor = "#ff2a91";
+        ctx.fillStyle = "#ff2a91";
+        drawRoundRect(-19, -27, 38, 56, 10);
+        ctx.fill();
+        ctx.fillStyle = "#ffe63e";
+        ctx.fillRect(-17, -27, 34, 13);
+        ctx.shadowBlur = 0;
+      }
       if (dashUntil > performance.now()) {
         ctx.strokeStyle = "#24dbff";
         ctx.lineWidth = 4;
@@ -918,6 +988,26 @@
       for (const npc of sorted) drawNpc(npc, { x: 0, y: 0 });
       drawPlayer({ x: 0, y: 0 });
 
+      if (lastInteraction && lastInteraction.until > performance.now()) {
+        const alpha = (lastInteraction.until - performance.now()) / 520;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+        ctx.strokeStyle = lastInteraction.type === "bonk" ? "#ffef63" : "#24dbff";
+        ctx.lineWidth = lastInteraction.type === "bonk" ? 7 : 4;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.moveTo(lastInteraction.x1, lastInteraction.y1);
+        ctx.quadraticCurveTo(
+          (lastInteraction.x1 + lastInteraction.x2) / 2,
+          Math.min(lastInteraction.y1, lastInteraction.y2) - 38,
+          lastInteraction.x2,
+          lastInteraction.y2
+        );
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.strokeStyle = "rgba(180,220,255,0.28)";
       ctx.lineWidth = 1;
       for (const drop of rain) {
@@ -962,7 +1052,7 @@
         keys.add(key);
         if (key === "shift") dash();
         if (key === " " || key === "f") bonk();
-        if (key === "e") scout();
+        if (key === "e") interact();
         if (key === "g") pose();
       });
 
@@ -972,7 +1062,7 @@
       els.pose.addEventListener("pointerdown", pose);
       canvas.addEventListener("pointerdown", (event) => {
         if (event.clientX < window.innerWidth * 0.55) return;
-        scout();
+        interact();
       });
 
       let stickPointer = null;
