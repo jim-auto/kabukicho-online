@@ -11,12 +11,20 @@ local NPCService = {}
 local EconomyService
 
 local npcNames = {
-	"Neon Fan",
-	"Street Streamer",
-	"VIP Tourist",
-	"Snack Boss",
-	"Viral Dancer",
-	"Lost Salaryman",
+	"ネオン客",
+	"配信者客",
+	"観光VIP",
+	"スナック店長",
+	"バズりダンサー",
+	"迷子の会社員",
+}
+
+local troubleTypes = {
+	{ label = "クソ客", typeName = "RudeCustomer", color = Color3.fromRGB(255, 54, 54) },
+	{ label = "迷惑ナンパ", typeName = "Harasser", color = Color3.fromRGB(255, 116, 42) },
+	{ label = "メシ詐欺", typeName = "MealScammer", color = Color3.fromRGB(255, 190, 52) },
+	{ label = "金せびり", typeName = "CashMoocher", color = Color3.fromRGB(190, 255, 72) },
+	{ label = "罵倒客", typeName = "TrashTalker", color = Color3.fromRGB(255, 42, 145) },
 }
 
 local function randomStreetPosition()
@@ -25,9 +33,58 @@ local function randomStreetPosition()
 	return Vector3.new(math.random(-halfWidth, halfWidth), 3, math.random(-halfLength, halfLength))
 end
 
-local function makeNpc(index)
+local function despawnAndRespawn(model, index, isTroublemaker)
+	task.delay(1.5, function()
+		if model.Parent then
+			model:Destroy()
+		end
+
+		task.delay(GameConfig.NPC.RespawnDelay, function()
+			if isTroublemaker then
+				NPCService.makeNpc(index, true)
+			else
+				NPCService.makeNpc(index, false)
+			end
+		end)
+	end)
+end
+
+function NPCService.clearTroublemaker(model, player, forceDirection)
+	if not model or model:GetAttribute("Claimed") or not model:GetAttribute("Troublemaker") then
+		return false
+	end
+
+	local root = model.PrimaryPart
+	local body = model:FindFirstChild("Body")
+	local prompt = root and root:FindFirstChild("ScoutPrompt")
+
+	model:SetAttribute("Claimed", true)
+	if prompt then
+		prompt.Enabled = false
+	end
+
+	if body then
+		body.Color = Color3.fromRGB(255, 255, 255)
+	end
+
+	if root and forceDirection then
+		root.AssemblyLinearVelocity = forceDirection * 72 + Vector3.new(0, 34, 0)
+	end
+
+	EconomyService.awardTroublemaker(player, model:GetAttribute("NpcLabel") or "troublemaker", model:GetAttribute("TroubleType"))
+	despawnAndRespawn(model, model:GetAttribute("NpcIndex") or 1, true)
+	return true
+end
+
+function NPCService.makeNpc(index, isTroublemaker)
 	local model = Instance.new("Model")
-	model.Name = ("KO_Customer_%02d"):format(index)
+	model.Name = isTroublemaker and ("KO_Troublemaker_%02d"):format(index) or ("KO_Customer_%02d"):format(index)
+	model:SetAttribute("NpcIndex", index)
+	model:SetAttribute("Troublemaker", isTroublemaker)
+	local troubleInfo = isTroublemaker and Util.pick(troubleTypes) or nil
+	if troubleInfo then
+		model:SetAttribute("TroubleType", troubleInfo.typeName)
+	end
 
 	local root = Instance.new("Part")
 	root.Name = "HumanoidRootPart"
@@ -42,7 +99,7 @@ local function makeNpc(index)
 	body.Name = "Body"
 	body.Size = Vector3.new(2.4, 4, 1.4)
 	body.CFrame = root.CFrame
-	body.Color = Util.pick({
+	body.Color = troubleInfo and troubleInfo.color or Util.pick({
 		Color3.fromRGB(255, 42, 145),
 		Color3.fromRGB(36, 219, 255),
 		Color3.fromRGB(255, 230, 62),
@@ -57,15 +114,16 @@ local function makeNpc(index)
 	weld.Parent = body
 
 	local humanoid = Instance.new("Humanoid")
-	humanoid.DisplayName = Util.pick(npcNames)
-	humanoid.WalkSpeed = math.random(7, 11)
+	humanoid.DisplayName = troubleInfo and troubleInfo.label or Util.pick(npcNames)
+	humanoid.WalkSpeed = isTroublemaker and math.random(11, 15) or math.random(7, 11)
 	humanoid.Parent = model
+	model:SetAttribute("NpcLabel", humanoid.DisplayName)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ScoutPrompt"
-	prompt.ActionText = "Scout"
+	prompt.ActionText = isTroublemaker and "ツッコミ退場" or "客引き"
 	prompt.ObjectText = humanoid.DisplayName
-	prompt.HoldDuration = 0.35
+	prompt.HoldDuration = isTroublemaker and 0.15 or 0.35
 	prompt.MaxActivationDistance = GameConfig.NPC.InteractDistance
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = root
@@ -81,18 +139,15 @@ local function makeNpc(index)
 
 		model:SetAttribute("Claimed", true)
 		prompt.Enabled = false
-		EconomyService.awardCustomer(player, humanoid.DisplayName, 1)
+
+		if isTroublemaker then
+			EconomyService.awardTroublemaker(player, humanoid.DisplayName, model:GetAttribute("TroubleType"))
+		else
+			EconomyService.awardCustomer(player, humanoid.DisplayName, 1)
+		end
 
 		body.Color = Color3.fromRGB(255, 255, 255)
-		task.delay(1.5, function()
-			if model.Parent then
-				model:Destroy()
-			end
-
-			task.delay(GameConfig.NPC.RespawnDelay, function()
-				makeNpc(index)
-			end)
-		end)
+		despawnAndRespawn(model, index, isTroublemaker)
 	end)
 
 	task.spawn(function()
@@ -123,7 +178,11 @@ function NPCService.init(economyService)
 	EconomyService = economyService
 
 	for i = 1, GameConfig.NPC.Count do
-		makeNpc(i)
+		NPCService.makeNpc(i, false)
+	end
+
+	for i = 1, GameConfig.NPC.TroublemakerCount do
+		NPCService.makeNpc(i, true)
 	end
 end
 

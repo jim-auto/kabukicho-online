@@ -23,9 +23,10 @@
       height: 450px;
       overflow: hidden;
       background:
-        radial-gradient(circle at 35% 18%, rgba(255, 42, 145, 0.36), transparent 24%),
-        radial-gradient(circle at 74% 20%, rgba(36, 219, 255, 0.30), transparent 26%),
-        linear-gradient(#101020 0%, #090914 44%, #141414 45%, #060607 100%);
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 80px),
+        radial-gradient(circle at 35% 18%, rgba(255, 42, 145, 0.42), transparent 24%),
+        radial-gradient(circle at 74% 20%, rgba(36, 219, 255, 0.34), transparent 26%),
+        linear-gradient(#111123 0%, #090914 44%, #15151b 45%, #060607 100%);
     }
 
     .title {
@@ -130,7 +131,7 @@
       border-radius: 14px 14px 8px 8px;
       background: linear-gradient(#ffe63e 0 22%, #ff2a91 22% 100%);
       box-shadow: 0 0 18px #ff2a91;
-      animation: dash 2.4s ease-in-out infinite;
+      animation: dash 2.2s ease-in-out infinite;
     }
 
     .avatar::before {
@@ -170,6 +171,42 @@
     .npc.b { left: 560px; bottom: 92px; animation-delay: -1.2s; background: #ffe63e; box-shadow: 0 0 14px #ffe63e; }
     .npc.c { left: 96px; bottom: 60px; animation-delay: -1.9s; background: #ff2a91; box-shadow: 0 0 14px #ff2a91; }
 
+    .trouble {
+      position: absolute;
+      left: 505px;
+      bottom: 78px;
+      z-index: 6;
+      width: 42px;
+      height: 64px;
+      border-radius: 10px 10px 6px 6px;
+      background: #ff472d;
+      box-shadow: 0 0 18px #ff472d;
+      animation: bonked 2.2s ease-in-out infinite;
+    }
+
+    .trouble::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: -20px;
+      width: 21px;
+      height: 21px;
+      border-radius: 50%;
+      background: #f7c6a5;
+    }
+
+    .impact {
+      position: absolute;
+      left: 532px;
+      bottom: 152px;
+      z-index: 10;
+      color: #ffe63e;
+      font-size: 30px;
+      font-weight: 900;
+      text-shadow: 0 0 14px #ffe63e;
+      animation: impact 2.2s ease-in-out infinite;
+    }
+
     .event {
       position: absolute;
       left: 50%;
@@ -178,11 +215,11 @@
       transform: translateX(-50%);
       padding: 10px 18px;
       border-radius: 8px;
-      background: #ff2a91;
+      background: #ff472d;
       color: #fff;
       font-size: 20px;
       font-weight: 900;
-      box-shadow: 0 0 22px #ff2a91;
+      box-shadow: 0 0 22px #ff472d;
       animation: eventPop 4s infinite;
     }
 
@@ -231,9 +268,9 @@
     }
 
     @keyframes dash {
-      0%, 100% { transform: translateX(-70px) rotate(-2deg); }
-      45% { transform: translateX(88px) rotate(3deg); }
-      60% { transform: translateX(114px) rotate(10deg); }
+      0%, 100% { transform: translateX(-92px) rotate(-2deg); }
+      42% { transform: translateX(88px) rotate(3deg); }
+      56% { transform: translateX(124px) rotate(10deg); }
     }
 
     @keyframes crowd {
@@ -251,43 +288,58 @@
       from { top: -24px; }
       to { top: 386px; }
     }
+
+    @keyframes bonked {
+      0%, 38%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+      56% { transform: translate(92px, -34px) rotate(28deg); opacity: 1; }
+      78% { transform: translate(124px, 28px) rotate(42deg); opacity: 0.2; }
+    }
+
+    @keyframes impact {
+      0%, 38%, 100% { opacity: 0; transform: scale(0.6); }
+      48%, 64% { opacity: 1; transform: scale(1.15); }
+      78% { opacity: 0; transform: scale(1.4); }
+    }
   </style>
 </head>
 <body>
   <main class="scene">
-    <div class="title">KABUKICHO ONLINE</div>
-    <div class="subtitle">Roblox Night City Action MMO Prototype</div>
+    <div class="title">歌舞伎町オンライン</div>
+    <div class="subtitle">夜街アクションMMO プロトタイプ</div>
 
     <section class="hud">
-      <div class="ranking">SERVER RANKING</div>
-      <div>1. NeonKing Rep 420</div>
-      <div>2. ViralHost Rep 350</div>
-      <div>Money: 12,800</div>
-      <div>Club Rank: 7</div>
+      <div class="ranking">ランキング</div>
+      <div>1. ネオン王 評判420</div>
+      <div>2. バズホスト 評判350</div>
+      <div>所持金: 12,800</div>
+      <div>店ランク: 7</div>
+      <div>迷惑退治: 18</div>
     </section>
 
-    <div class="building left-1"><div class="sign pink">HOST BATTLE</div></div>
-    <div class="building left-2"><div class="sign cyan">FAN RUSH</div></div>
-    <div class="building left-3"><div class="sign yellow">NO.1 RANK</div></div>
-    <div class="building right-1"><div class="sign green">NEON KING</div></div>
-    <div class="building right-2"><div class="sign pink">CHAOS</div></div>
-    <div class="building right-3"><div class="sign cyan">TYCOON</div></div>
+    <div class="building left-1"><div class="sign pink">ホストバトル</div></div>
+    <div class="building left-2"><div class="sign cyan">客ラッシュ</div></div>
+    <div class="building left-3"><div class="sign yellow">目指せNo.1</div></div>
+    <div class="building right-1"><div class="sign green">ネオン王</div></div>
+    <div class="building right-2"><div class="sign pink">カオス</div></div>
+    <div class="building right-3"><div class="sign cyan">タイクーン</div></div>
 
     <div class="street"></div>
     <div class="npc a"></div>
     <div class="npc b"></div>
     <div class="npc c"></div>
+    <div class="trouble"></div>
+    <div class="impact">退治+2</div>
     <div class="avatar"></div>
-    <div class="event">CASH RAIN EVENT!</div>
+    <div class="event">クソ客をツッコミ退場！</div>
     <div class="coin"></div>
     <div class="coin"></div>
     <div class="coin"></div>
     <div class="coin"></div>
 
     <div class="buttons">
-      <div class="button">DASH</div>
-      <div class="button">PUSH</div>
-      <div class="button">POSE</div>
+      <div class="button">ダッシュ</div>
+      <div class="button">ツッコミ</div>
+      <div class="button">ポーズ</div>
     </div>
   </main>
 </body>

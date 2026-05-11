@@ -17,6 +17,7 @@ Constants.STATS = {
 	Reputation = "Reputation",
 	Charisma = "Charisma",
 	ClubRank = "ClubRank",
+	TroublePoints = "TroublePoints",
 }
 
 Constants.NPC_TAG = "KO_NPC"

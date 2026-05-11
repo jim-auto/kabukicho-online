@@ -21,11 +21,13 @@ function RankingService.getTop(limit)
 		local money = PlayerDataService.getStat(player, Constants.STATS.Money)
 		local reputation = PlayerDataService.getStat(player, Constants.STATS.Reputation)
 		local clubRank = PlayerDataService.getStat(player, Constants.STATS.ClubRank)
+		local troublePoints = PlayerDataService.getStat(player, Constants.STATS.TroublePoints)
 		table.insert(rows, {
 			name = player.DisplayName,
 			money = money and money.Value or 0,
 			reputation = reputation and reputation.Value or 0,
 			clubRank = clubRank and clubRank.Value or 1,
+			troublePoints = troublePoints and troublePoints.Value or 0,
 		})
 	end
 

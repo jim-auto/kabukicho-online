@@ -32,10 +32,21 @@ function EconomyService.awardCustomer(player, sourceName, multiplier)
 	local desiredRank = math.clamp(math.floor(newReputation / GameConfig.Economy.ClubRankEveryReputation) + 1, 1, GameConfig.Economy.MaxClubRank)
 	if desiredRank > rankValue then
 		PlayerDataService.setStat(player, Constants.STATS.ClubRank, desiredRank)
-		remotes[Constants.REMOTES.SystemMessage]:FireClient(player, ("Club Rank UP: %d"):format(desiredRank))
+		remotes[Constants.REMOTES.SystemMessage]:FireClient(player, ("店ランクUP: %d"):format(desiredRank))
 	end
 
-	remotes[Constants.REMOTES.SystemMessage]:FireClient(player, ("+%d yen / +%d rep from %s"):format(money, reputation, sourceName or "street fan"))
+	remotes[Constants.REMOTES.SystemMessage]:FireClient(player, ("%s 獲得！ +%d円 / 評判+%d"):format(sourceName or "街の客", money, reputation))
+end
+
+function EconomyService.awardTroublemaker(player, sourceName, troubleType)
+	local money = GameConfig.NPC.TroublemakerMoney
+	local reputation = GameConfig.NPC.TroublemakerReputation
+	local points = troubleType == "RudeCustomer" and GameConfig.NPC.BonusTroublemakerPoints or GameConfig.NPC.TroublemakerPoints
+
+	PlayerDataService.addStat(player, Constants.STATS.Money, money)
+	PlayerDataService.addStat(player, Constants.STATS.Reputation, reputation)
+	PlayerDataService.addStat(player, Constants.STATS.TroublePoints, points)
+	remotes[Constants.REMOTES.SystemMessage]:FireClient(player, ("%sをツッコミ退場！ 迷惑退治+%d / 評判+%d"):format(sourceName or "迷惑客", points, reputation))
 end
 
 return EconomyService

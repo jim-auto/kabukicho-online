@@ -7,7 +7,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "capture:demo": "node scripts/capture-demo.mjs"
+    "capture:demo": "node scripts/capture-demo.mjs",
+    "smoke:pages": "node scripts/smoke-pages.mjs"
   },
   "repository": {
     "type": "git",
@@ -20,7 +21,7 @@
   "bugs": {
     "url": "https://github.com/jim-auto/kabukicho-online/issues"
   },
-  "homepage": "https://github.com/jim-auto/kabukicho-online#readme",
+  "homepage": "https://jim-auto.github.io/kabukicho-online/",
   "devDependencies": {
     "gif-encoder-2": "^1.0.5",
     "playwright": "^1.60.0",

@@ -47,11 +47,20 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = statsPanel
 
 local statLabels = {}
+local statDisplayNames = {
+	[Constants.STATS.Money] = "所持金",
+	[Constants.STATS.Reputation] = "評判",
+	[Constants.STATS.Charisma] = "カリスマ",
+	[Constants.STATS.ClubRank] = "店ランク",
+	[Constants.STATS.TroublePoints] = "迷惑退治",
+}
+
 local statOrder = {
 	Constants.STATS.Money,
 	Constants.STATS.Reputation,
 	Constants.STATS.Charisma,
 	Constants.STATS.ClubRank,
+	Constants.STATS.TroublePoints,
 }
 
 for index, statName in ipairs(statOrder) do
@@ -61,7 +70,7 @@ for index, statName in ipairs(statOrder) do
 	label.Position = UDim2.fromOffset(10 + ((index - 1) % 2) * 145, 42 + math.floor((index - 1) / 2) * 30)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
-	label.Text = statName .. ": 0"
+	label.Text = (statDisplayNames[statName] or statName) .. ": 0"
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
 	label.TextSize = 16
 	label.TextXAlignment = Enum.TextXAlignment.Left
@@ -107,7 +116,7 @@ rankingTitle.Size = UDim2.new(1, -20, 0, 30)
 rankingTitle.Position = UDim2.fromOffset(10, 8)
 rankingTitle.BackgroundTransparency = 1
 rankingTitle.Font = Enum.Font.GothamBlack
-rankingTitle.Text = "SERVER RANKING"
+rankingTitle.Text = "サーバーランキング"
 rankingTitle.TextColor3 = Color3.fromRGB(255, 230, 62)
 rankingTitle.TextSize = 18
 rankingTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -162,16 +171,16 @@ local function makeButton(name, text, x)
 	return button
 end
 
-local dashButton = makeButton("DashButton", "DASH", 0)
-local pushButton = makeButton("PushButton", "PUSH", 94)
-local emoteButton = makeButton("EmoteButton", "POSE", 188)
+local dashButton = makeButton("DashButton", "ダッシュ", 0)
+local pushButton = makeButton("PushButton", "ツッコミ", 94)
+local emoteButton = makeButton("EmoteButton", "ポーズ", 188)
 
 local function applyResponsiveLayout()
 	local camera = workspace.CurrentCamera
 	local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
 	local compact = viewport.X < 760
 
-	statsPanel.Size = compact and UDim2.fromOffset(250, 112) or UDim2.fromOffset(300, 118)
+	statsPanel.Size = compact and UDim2.fromOffset(250, 142) or UDim2.fromOffset(300, 146)
 	title.TextSize = compact and 18 or 22
 	title.TextScaled = compact
 
@@ -208,7 +217,7 @@ local function updateStatsFromLeaderstats()
 	for _, statName in ipairs(statOrder) do
 		local stat = leaderstats:FindFirstChild(statName)
 		if stat then
-			statLabels[statName].Text = statName .. ": " .. stat.Value
+			statLabels[statName].Text = (statDisplayNames[statName] or statName) .. ": " .. stat.Value
 		end
 	end
 end
@@ -256,7 +265,7 @@ end)
 
 remotes[Constants.REMOTES.StatsChanged].OnClientEvent:Connect(function(statName, value)
 	if statLabels[statName] then
-		statLabels[statName].Text = statName .. ": " .. value
+		statLabels[statName].Text = (statDisplayNames[statName] or statName) .. ": " .. value
 	end
 end)
 
@@ -272,7 +281,7 @@ local function refreshRanking()
 	for i, rowLabel in ipairs(rankingRows) do
 		local row = rows[i]
 		if row then
-			rowLabel.Text = ("%d. %s  R%d  Rep %d"):format(i, row.name, row.clubRank, row.reputation)
+			rowLabel.Text = ("%d. %s  店%d  評判%d  退治%d"):format(i, row.name, row.clubRank, row.reputation, row.troublePoints or 0)
 		else
 			rowLabel.Text = i .. ". ---"
 		end

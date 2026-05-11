@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kabukicho Online - ブラウザ版</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #050509;
+      color: #f7f7ff;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+    }
+
+    #game {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #050509;
+      touch-action: none;
+    }
+
+    .hud {
+      position: fixed;
+      inset: 16px 16px auto 16px;
+      display: grid;
+      grid-template-columns: minmax(230px, 330px) minmax(180px, 280px);
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .panel {
+      border: 1px solid rgba(36, 219, 255, 0.72);
+      border-radius: 8px;
+      background: rgba(7, 8, 15, 0.76);
+      box-shadow: 0 0 20px rgba(36, 219, 255, 0.20), inset 0 0 18px rgba(255, 42, 145, 0.10);
+      backdrop-filter: blur(6px);
+      padding: 12px;
+    }
+
+    .brand {
+      font-size: 20px;
+      font-weight: 900;
+      color: #24dbff;
+      text-shadow: 0 0 12px rgba(36, 219, 255, 0.95);
+      letter-spacing: 0;
+      line-height: 1;
+    }
+
+    .sub {
+      margin-top: 5px;
+      color: #ffe63e;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px;
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .ranking-title {
+      color: #ffe63e;
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 7px;
+    }
+
+    .rank-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.55;
+      white-space: nowrap;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      top: 22px;
+      transform: translateX(-50%);
+      min-width: min(620px, calc(100vw - 32px));
+      max-width: calc(100vw - 32px);
+      border-radius: 8px;
+      background: #ff2a91;
+      color: white;
+      box-shadow: 0 0 26px rgba(255, 42, 145, 0.65);
+      padding: 12px 18px;
+      font-size: 20px;
+      font-weight: 900;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 140ms ease, transform 140ms ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+
+    .controls {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 72px);
+      gap: 10px;
+    }
+
+    .btn {
+      width: 72px;
+      height: 64px;
+      border: 1px solid rgba(36, 219, 255, 0.9);
+      border-radius: 8px;
+      background: rgba(8, 10, 18, 0.84);
+      color: white;
+      font-size: 13px;
+      font-weight: 900;
+      box-shadow: 0 0 16px rgba(36, 219, 255, 0.28);
+      cursor: pointer;
+    }
+
+    .stick {
+      position: fixed;
+      left: 18px;
+      bottom: 20px;
+      width: 128px;
+      height: 128px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      display: none;
+    }
+
+    .stick::after {
+      content: "";
+      position: absolute;
+      left: 44px;
+      top: 44px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(36, 219, 255, 0.72);
+      box-shadow: 0 0 18px rgba(36, 219, 255, 0.7);
+      transform: translate(var(--knob-x, 0), var(--knob-y, 0));
+    }
+
+    .help {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.70);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    @media (max-width: 760px) {
+      .hud {
+        inset: 10px 10px auto 10px;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .ranking {
+        display: none;
+      }
+
+      .brand {
+        font-size: 18px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        font-size: 12px;
+      }
+
+      .toast {
+        top: 112px;
+        font-size: 16px;
+      }
+
+      .controls {
+        grid-template-columns: repeat(3, 64px);
+      }
+
+      .btn {
+        width: 64px;
+        height: 58px;
+        font-size: 12px;
+      }
+
+      .stick {
+        display: block;
+      }
+
+      .help {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <section class="panel">
+      <div class="brand">歌舞伎町オンライン</div>
+      <div class="sub">ブラウザ版ミニゲーム / Robloxプロトタイプ</div>
+      <div class="stats">
+        <div>所持金: <span id="money">0</span></div>
+        <div>評判: <span id="rep">0</span></div>
+        <div>カリスマ: <span id="charisma">1</span></div>
+        <div>店ランク: <span id="club">1</span></div>
+        <div>迷惑退治: <span id="trouble">0</span></div>
+        <div>コンボ: <span id="combo">1.0</span>x</div>
+      </div>
+    </section>
+
+    <section class="panel ranking">
+      <div class="ranking-title">サーバーランキング</div>
+      <div id="ranking"></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="stick" class="stick"></div>
+  <div class="controls">
+    <button id="dash" class="btn" type="button">ダッシュ</button>
+    <button id="bonk" class="btn" type="button">ツッコミ</button>
+    <button id="pose" class="btn" type="button">ポーズ</button>
+  </div>
+  <div class="help">WASD / 矢印: 移動 · Shift: ダッシュ · Space/F: ツッコミ · E: 客引き · G: ポーズ</div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const els = {
+      money: document.getElementById("money"),
+      rep: document.getElementById("rep"),
+      charisma: document.getElementById("charisma"),
+      club: document.getElementById("club"),
+      trouble: document.getElementById("trouble"),
+      combo: document.getElementById("combo"),
+      ranking: document.getElementById("ranking"),
+      toast: document.getElementById("toast"),
+      stick: document.getElementById("stick"),
+      dash: document.getElementById("dash"),
+      bonk: document.getElementById("bonk"),
+      pose: document.getElementById("pose"),
+    };
+
+    const neon = ["#ff2a91", "#24dbff", "#ffe63e", "#5bff7b", "#ff742a"];
+    const customerLabels = ["ネオン客", "配信者客", "観光VIP", "バズりダンサー", "迷子の会社員"];
+    const troubleLabels = ["クソ客", "迷惑ナンパ", "メシ詐欺", "金せびり", "罵倒客"];
+    const rankingNames = ["ネオン王", "バズホスト", "ツッコミ番長", "看板スター", "カオス小僧"];
+    const world = { w: 2200, h: 1500 };
+    const keys = new Set();
+    const particles = [];
+    const npcs = [];
+    const signs = [];
+
+    let dpr = 1;
+    let last = performance.now();
+    let toastUntil = 0;
+    let chaosUntil = 0;
+    let nextChaos = 12;
+    let poseUntil = 0;
+    let dashUntil = 0;
+    let dashCooldown = 0;
+    let bonkCooldown = 0;
+    let touchMove = { x: 0, y: 0 };
+
+    const player = {
+      x: world.w / 2,
+      y: world.h - 260,
+      r: 19,
+      facing: 0,
+      money: 0,
+      rep: 0,
+      charisma: 1,
+      club: 1,
+      trouble: 0,
+      combo: 1,
+    };
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function pick(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function showToast(text, color = "#ff2a91") {
+      els.toast.textContent = text;
+      els.toast.style.background = color;
+      els.toast.classList.add("show");
+      toastUntil = performance.now() + 1800;
+    }
+
+    function spawnParticle(x, y, text, color) {
+      particles.push({ x, y, text, color, life: 1, vy: -60, vx: rand(-24, 24) });
+    }
+
+    function createNpc(type) {
+      const trouble = type === "trouble";
+      return {
+        type,
+        label: trouble ? pick(troubleLabels) : pick(customerLabels),
+        x: rand(220, world.w - 220),
+        y: rand(260, world.h - 170),
+        r: trouble ? 18 : 16,
+        color: trouble ? pick(["#ff472d", "#ff742a", "#ff2a91", "#ffe63e"]) : pick(["#24dbff", "#5bff7b", "#ffe63e", "#ff2a91"]),
+        vx: rand(-28, 28),
+        vy: rand(-24, 24),
+        claimed: false,
+      };
+    }
+
+    function resetNpc(npc, type = npc.type) {
+      Object.assign(npc, createNpc(type));
+    }
+
+    function setupWorld() {
+      for (let i = 0; i < 34; i += 1) npcs.push(createNpc("customer"));
+      for (let i = 0; i < 12; i += 1) npcs.push(createNpc("trouble"));
+
+      for (let i = 0; i < 36; i += 1) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const row = Math.floor(i / 2);
+        signs.push({
+          x: world.w / 2 + side * rand(430, 620),
+          y: 120 + row * 72,
+          w: rand(130, 210),
+          h: rand(34, 56),
+          color: pick(neon),
+          text: pick(["ホストバトル", "No.1", "ツッコミSHOW", "客ラッシュ", "カオス", "ネオン王"]),
+        });
+      }
+    }
+
+    function updateStats() {
+      player.club = Math.max(1, Math.floor(player.rep / 180) + 1);
+      els.money.textContent = String(player.money);
+      els.rep.textContent = String(player.rep);
+      els.charisma.textContent = String(player.charisma);
+      els.club.textContent = String(player.club);
+      els.trouble.textContent = String(player.trouble);
+      els.combo.textContent = player.combo.toFixed(1);
+
+      const rows = [
+        { name: "あなた", rep: player.rep, trouble: player.trouble },
+        ...rankingNames.map((name, i) => ({ name, rep: 380 - i * 58 + Math.floor(performance.now() / 2200) % 20, trouble: 16 - i * 2 })),
+      ].sort((a, b) => b.rep - a.rep).slice(0, 5);
+
+      els.ranking.innerHTML = rows.map((row, i) => `
+        <div class="rank-row"><span>${i + 1}. ${row.name}</span><span>評判 ${row.rep} / 退治 ${row.trouble}</span></div>
+      `).join("");
+    }
+
+    function distance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function scout() {
+      let target = null;
+      let best = 62;
+      for (const npc of npcs) {
+        if (npc.type !== "customer") continue;
+        const d = distance(player, npc);
+        if (d < best) {
+          best = d;
+          target = npc;
+        }
+      }
+      if (!target) return;
+
+      const bonus = chaosUntil > performance.now() ? 2 : 1;
+      const money = Math.floor((18 + player.club * 2) * player.combo * bonus);
+      const rep = Math.floor((6 + player.club) * player.combo * bonus);
+      player.money += money;
+      player.rep += rep;
+      if (Math.random() < 0.28) player.charisma += 1;
+      player.combo = Math.min(3, player.combo + 0.1);
+      spawnParticle(target.x, target.y, `+${money}円 評判+${rep}`, "#ffe63e");
+      showToast(`客引き成功: ${target.label}`, "#24dbff");
+      resetNpc(target, "customer");
+    }
+
+    function bonk() {
+      const now = performance.now();
+      if (bonkCooldown > now) return;
+      bonkCooldown = now + 500;
+
+      let hit = false;
+      for (const npc of npcs) {
+        if (npc.type !== "trouble") continue;
+        const d = distance(player, npc);
+        if (d > 88) continue;
+        const dx = npc.x - player.x || Math.cos(player.facing);
+        const dy = npc.y - player.y || Math.sin(player.facing);
+        const len = Math.hypot(dx, dy) || 1;
+        npc.x += (dx / len) * 95;
+        npc.y += (dy / len) * 95;
+        player.trouble += npc.label === "クソ客" ? 2 : 1;
+        player.rep += npc.label === "クソ客" ? 16 : 11;
+        player.money += 10;
+        player.combo = Math.min(3, player.combo + 0.18);
+        spawnParticle(npc.x, npc.y, npc.label === "クソ客" ? "退治+2" : "退治+1", "#ffef63");
+        showToast(`${npc.label}をツッコミ退場！`, "#ff472d");
+        resetNpc(npc, "trouble");
+        hit = true;
+      }
+
+      if (!hit) {
+        spawnParticle(player.x + Math.cos(player.facing) * 34, player.y + Math.sin(player.facing) * 34, "スカッ", "#ffffff");
+      }
+    }
+
+    function dash() {
+      const now = performance.now();
+      if (dashCooldown > now) return;
+      dashUntil = now + 320;
+      dashCooldown = now + 1600;
+      showToast("ダッシュ！", "#24dbff");
+    }
+
+    function pose() {
+      poseUntil = performance.now() + 900;
+      player.rep += 3;
+      player.combo = Math.min(3, player.combo + 0.05);
+      showToast("ネオンポーズ！ 評判+3", "#ff2a91");
+    }
+
+    function startChaos() {
+      chaosUntil = performance.now() + 9000;
+      nextChaos = rand(18, 28);
+      showToast("札束の雨！ 報酬2倍！", "#ffe63e");
+      for (let i = 0; i < 60; i += 1) {
+        particles.push({ x: rand(100, world.w - 100), y: rand(80, world.h - 120), text: "¥", color: "#ffe63e", life: rand(0.6, 1.2), vy: rand(24, 80), vx: rand(-18, 18) });
+      }
+    }
+
+    function inputVector() {
+      let x = touchMove.x;
+      let y = touchMove.y;
+      if (keys.has("arrowleft") || keys.has("a")) x -= 1;
+      if (keys.has("arrowright") || keys.has("d")) x += 1;
+      if (keys.has("arrowup") || keys.has("w")) y -= 1;
+      if (keys.has("arrowdown") || keys.has("s")) y += 1;
+      const len = Math.hypot(x, y);
+      if (len > 1) return { x: x / len, y: y / len };
+      return { x, y };
+    }
+
+    function update(dt) {
+      const now = performance.now();
+      const move = inputVector();
+      const speed = dashUntil > now ? 430 : 230;
+      player.x = Math.max(70, Math.min(world.w - 70, player.x + move.x * speed * dt));
+      player.y = Math.max(80, Math.min(world.h - 70, player.y + move.y * speed * dt));
+      if (Math.hypot(move.x, move.y) > 0.05) player.facing = Math.atan2(move.y, move.x);
+
+      player.combo = Math.max(1, player.combo - dt * 0.06);
+      nextChaos -= dt;
+      if (nextChaos <= 0) startChaos();
+
+      for (const npc of npcs) {
+        npc.x += npc.vx * dt;
+        npc.y += npc.vy * dt;
+        if (npc.x < 120 || npc.x > world.w - 120) npc.vx *= -1;
+        if (npc.y < 120 || npc.y > world.h - 120) npc.vy *= -1;
+        if (Math.random() < 0.01) {
+          npc.vx = rand(-36, 36);
+          npc.vy = rand(-30, 30);
+        }
+      }
+
+      for (let i = particles.length - 1; i >= 0; i -= 1) {
+        const p = particles[i];
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      if (toastUntil < now) els.toast.classList.remove("show");
+      updateStats();
+    }
+
+    function camera() {
+      return {
+        x: Math.max(0, Math.min(world.w - window.innerWidth, player.x - window.innerWidth / 2)),
+        y: Math.max(0, Math.min(world.h - window.innerHeight, player.y - window.innerHeight / 2)),
+      };
+    }
+
+    function drawRoundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function drawBuilding(x, y, w, h, color) {
+      ctx.fillStyle = "#151622";
+      ctx.fillRect(x, y - h, w, h);
+      ctx.strokeStyle = "rgba(255,255,255,0.09)";
+      ctx.strokeRect(x, y - h, w, h);
+      for (let yy = y - h + 22; yy < y - 20; yy += 34) {
+        for (let xx = x + 14; xx < x + w - 16; xx += 34) {
+          ctx.fillStyle = Math.random() < 0.45 ? color : "rgba(255,255,255,0.08)";
+          ctx.fillRect(xx, yy, 14, 18);
+        }
+      }
+    }
+
+    function drawNpc(npc, cam) {
+      const x = npc.x - cam.x;
+      const y = npc.y - cam.y;
+      ctx.save();
+      ctx.shadowBlur = 16;
+      ctx.shadowColor = npc.color;
+      ctx.fillStyle = npc.color;
+      drawRoundRect(x - npc.r, y - npc.r * 1.4, npc.r * 2, npc.r * 2.8, 8);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#ffd6b8";
+      ctx.beginPath();
+      ctx.arc(x, y - npc.r * 1.75, npc.r * 0.64, 0, Math.PI * 2);
+      ctx.fill();
+      if (distance(player, npc) < (npc.type === "trouble" ? 92 : 68)) {
+        ctx.font = "800 12px Arial";
+        ctx.textAlign = "center";
+        ctx.fillStyle = npc.type === "trouble" ? "#ffe63e" : "#ffffff";
+        ctx.fillText(npc.type === "trouble" ? "ツッコミ" : "客引き", x, y - npc.r * 2.6);
+      }
+      ctx.restore();
+    }
+
+    function drawPlayer(cam) {
+      const x = player.x - cam.x;
+      const y = player.y - cam.y;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(player.facing);
+      ctx.shadowBlur = poseUntil > performance.now() ? 30 : 18;
+      ctx.shadowColor = "#ff2a91";
+      ctx.fillStyle = "#ff2a91";
+      drawRoundRect(-19, -27, 38, 56, 10);
+      ctx.fill();
+      ctx.fillStyle = "#ffe63e";
+      ctx.fillRect(-17, -27, 34, 13);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#ffd6b8";
+      ctx.beginPath();
+      ctx.arc(0, -42, 14, 0, Math.PI * 2);
+      ctx.fill();
+      if (dashUntil > performance.now()) {
+        ctx.strokeStyle = "#24dbff";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-52, 0);
+        ctx.lineTo(-20, 0);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function render() {
+      const cam = camera();
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+      gradient.addColorStop(0, "#101024");
+      gradient.addColorStop(0.5, "#080914");
+      gradient.addColorStop(1, "#050507");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+      for (let i = 0; i < 40; i += 1) {
+        const sx = (i * 97 - cam.x * 0.2) % window.innerWidth;
+        const sy = (i * 41 - cam.y * 0.2) % Math.max(window.innerHeight, 1);
+        ctx.fillStyle = i % 2 ? "rgba(36,219,255,0.12)" : "rgba(255,42,145,0.12)";
+        ctx.fillRect(sx, sy, 2, 2);
+      }
+
+      ctx.save();
+      ctx.translate(-cam.x, -cam.y);
+      ctx.fillStyle = "#24242d";
+      ctx.fillRect(world.w / 2 - 260, 0, 520, world.h);
+      ctx.fillStyle = "#30313a";
+      ctx.fillRect(world.w / 2 - 360, 0, 90, world.h);
+      ctx.fillRect(world.w / 2 + 270, 0, 90, world.h);
+      ctx.fillStyle = "#ffe63e";
+      for (let y = 40; y < world.h; y += 84) ctx.fillRect(world.w / 2 - 7, y, 14, 42);
+
+      for (let y = 190; y < world.h; y += 180) {
+        drawBuilding(world.w / 2 - 650, y, 210, 160 + (y % 3) * 28, "#24dbff");
+        drawBuilding(world.w / 2 + 440, y, 210, 180 + (y % 5) * 22, "#ff2a91");
+      }
+
+      for (const sign of signs) {
+        ctx.save();
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = sign.color;
+        ctx.fillStyle = sign.color;
+        drawRoundRect(sign.x, sign.y, sign.w, sign.h, 7);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = sign.color === "#ffe63e" || sign.color === "#5bff7b" ? "#111" : "#fff";
+        ctx.font = "900 18px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(sign.text, sign.x + sign.w / 2, sign.y + sign.h / 2 + 6);
+        ctx.restore();
+      }
+
+      const sorted = [...npcs].sort((a, b) => a.y - b.y);
+      for (const npc of sorted) drawNpc(npc, cam);
+      drawPlayer(cam);
+
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.font = "900 20px Arial";
+        ctx.textAlign = "center";
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = p.color;
+        ctx.fillText(p.text, p.x, p.y);
+        ctx.shadowBlur = 0;
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      if (chaosUntil > performance.now()) {
+        ctx.fillStyle = "rgba(255,230,62,0.08)";
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+      }
+    }
+
+    function frame(now) {
+      const dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      update(dt);
+      render();
+      requestAnimationFrame(frame);
+    }
+
+    function bindInput() {
+      window.addEventListener("keydown", (event) => {
+        const key = event.key.toLowerCase();
+        keys.add(key);
+        if (key === "shift") dash();
+        if (key === " " || key === "f") bonk();
+        if (key === "e") scout();
+        if (key === "g") pose();
+      });
+
+      window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
+      els.dash.addEventListener("pointerdown", dash);
+      els.bonk.addEventListener("pointerdown", bonk);
+      els.pose.addEventListener("pointerdown", pose);
+      canvas.addEventListener("pointerdown", (event) => {
+        if (event.clientX < window.innerWidth * 0.55) return;
+        scout();
+      });
+
+      let stickPointer = null;
+      els.stick.addEventListener("pointerdown", (event) => {
+        stickPointer = event.pointerId;
+        els.stick.setPointerCapture(stickPointer);
+      });
+      els.stick.addEventListener("pointermove", (event) => {
+        if (stickPointer !== event.pointerId) return;
+        const rect = els.stick.getBoundingClientRect();
+        const dx = event.clientX - (rect.left + rect.width / 2);
+        const dy = event.clientY - (rect.top + rect.height / 2);
+        const len = Math.hypot(dx, dy) || 1;
+        const mag = Math.min(44, len);
+        touchMove = { x: (dx / len) * (mag / 44), y: (dy / len) * (mag / 44) };
+        els.stick.style.setProperty("--knob-x", `${touchMove.x * 44}px`);
+        els.stick.style.setProperty("--knob-y", `${touchMove.y * 44}px`);
+      });
+      els.stick.addEventListener("pointerup", () => {
+        stickPointer = null;
+        touchMove = { x: 0, y: 0 };
+        els.stick.style.setProperty("--knob-x", "0px");
+        els.stick.style.setProperty("--knob-y", "0px");
+      });
+    }
+
+    window.addEventListener("resize", resize);
+    resize();
+    setupWorld();
+    bindInput();
+    showToast("客を集めて、迷惑NPCを退場させて、ランキング上位を狙え！", "#24dbff");
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

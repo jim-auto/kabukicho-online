@@ -29,6 +29,7 @@ function PlayerDataService.init(remoteFolder)
 		makeInt(leaderstats, Constants.STATS.Reputation, 0)
 		makeInt(leaderstats, Constants.STATS.Charisma, 1)
 		makeInt(leaderstats, Constants.STATS.ClubRank, 1)
+		makeInt(leaderstats, Constants.STATS.TroublePoints, 0)
 
 		player:SetAttribute("LastDashAt", -999)
 		player:SetAttribute("LastPushAt", -999)

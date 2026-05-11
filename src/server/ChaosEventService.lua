@@ -12,8 +12,8 @@ local remotes
 
 local events = {
 	{
-		name = "Cash Rain",
-		message = "Cash Rain! Scout customers for bonus money!",
+		name = "札束の雨",
+		message = "札束の雨！ 客引き報酬がチャンス中！",
 		multiplier = 2,
 		run = function()
 			for i = 1, 36 do
@@ -30,8 +30,8 @@ local events = {
 		end,
 	},
 	{
-		name = "Neon Rush",
-		message = "Neon Rush! Everyone gets a speed burst!",
+		name = "ネオンラッシュ",
+		message = "ネオンラッシュ！ 全員スピードアップ！",
 		run = function()
 			for _, player in ipairs(Players:GetPlayers()) do
 				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -47,8 +47,8 @@ local events = {
 		end,
 	},
 	{
-		name = "Street Jam",
-		message = "Street Jam! Giant neon props are rolling in!",
+		name = "路上カオス",
+		message = "路上カオス！ 巨大ネオン玉が転がってくる！",
 		run = function()
 			for i = 1, 14 do
 				local ball = Instance.new("Part")

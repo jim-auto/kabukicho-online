@@ -19,11 +19,16 @@ GameConfig.Player = {
 
 GameConfig.NPC = {
 	Count = 36,
+	TroublemakerCount = 9,
 	InteractDistance = 10,
 	RespawnDelay = 8,
 	BaseMoney = 18,
 	BaseReputation = 6,
 	BaseCharismaChance = 0.35,
+	TroublemakerMoney = 10,
+	TroublemakerReputation = 14,
+	TroublemakerPoints = 1,
+	BonusTroublemakerPoints = 2,
 }
 
 GameConfig.Economy = {

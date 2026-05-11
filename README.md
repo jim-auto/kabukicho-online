@@ -2,6 +2,12 @@
 
 Roblox向けの夜街ソーシャルアクションMMOプロトタイプです。恋愛・出会い目的ではなく、評判、カリスマ、店ランキング、PvP、カオスイベントで盛り上がる短時間プレイを軸にしています。
 
+## Play Now
+
+GitHub Pages版のブラウザミニゲーム:
+
+https://jim-auto.github.io/kabukicho-online/
+
 ![Kabukicho Online demo](assets/demo/kabukicho-online-demo.gif)
 
 このGIFはPlaywrightで自動生成したWebプレビューです。実ゲームはRoblox StudioでRojo同期後にPlayして確認します。
@@ -19,10 +25,17 @@ Roblox向けの夜街ソーシャルアクションMMOプロトタイプです�
 npm run capture:demo
 ```
 
+## GitHub Pages版の確認
+
+```powershell
+npm run smoke:pages
+```
+
 ## 実装済みMVP
 
 - 三人称標準移動に加えたダッシュ
-- 近距離プッシュPvP
+- 近距離BONK/PUSH PvP
+- 迷惑NPCをコメディ調に退場させるTroublePoints
 - NPC群衆とProximityPromptによる客集め
 - Money / Reputation / Charisma / ClubRank
 - ランキング取得
