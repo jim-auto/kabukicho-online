@@ -8,7 +8,7 @@ import GIFEncoder from "gif-encoder-2";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "..");
-const demoPath = path.join(root, "demos", "kabukicho-demo.html");
+const demoPath = path.join(root, "index.html");
 const outDir = path.join(root, "assets", "demo");
 const outPath = path.join(outDir, "kabukicho-online-demo.gif");
 

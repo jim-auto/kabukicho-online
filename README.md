@@ -10,7 +10,7 @@ https://jim-auto.github.io/kabukicho-online/
 
 ![Kabukicho Online demo](assets/demo/kabukicho-online-demo.gif)
 
-このGIFはPlaywrightで自動生成したWebプレビューです。実ゲームはRoblox StudioでRojo同期後にPlayして確認します。
+このGIFはPlaywrightでGitHub Pages版を自動撮影したものです。背景には生成画像アセットを使っています。Roblox版はStudioでRojo同期後にPlayして確認します。
 
 ## 実行方法
 

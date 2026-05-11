@@ -305,6 +305,8 @@
     const signs = [];
     const buildings = [];
     const rain = [];
+    const cityBackground = new Image();
+    cityBackground.src = "assets/generated/neon-city-bg.png";
 
     let dpr = 1;
     let last = performance.now();
@@ -687,12 +689,15 @@
       asphalt.addColorStop(0, "#343541");
       asphalt.addColorStop(0.55, "#1f2028");
       asphalt.addColorStop(1, "#09090d");
+      ctx.globalAlpha = cityBackground.complete && cityBackground.naturalWidth > 0 ? 0.72 : 1;
       ctx.fillStyle = asphalt;
       ctx.fillRect(roadLeft, 0, roadRight - roadLeft, world.h);
 
+      ctx.globalAlpha = cityBackground.complete && cityBackground.naturalWidth > 0 ? 0.42 : 1;
       ctx.fillStyle = "#30313a";
       ctx.fillRect(sideLeft, 0, roadLeft - sideLeft, world.h);
       ctx.fillRect(roadRight, 0, sideRight - roadRight, world.h);
+      ctx.globalAlpha = 1;
 
       ctx.fillStyle = "rgba(255,255,255,0.07)";
       for (let y = 0; y < world.h; y += 44) {
@@ -716,6 +721,40 @@
         ctx.ellipse(world.w / 2 + Math.sin(y) * 90, y + 50, 170, 28, 0, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+
+    function drawGeneratedBackground(cam) {
+      if (!cityBackground.complete || cityBackground.naturalWidth === 0) return false;
+
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const imgW = cityBackground.naturalWidth;
+      const imgH = cityBackground.naturalHeight;
+      const imgRatio = imgW / imgH;
+      const viewRatio = viewportW / viewportH;
+
+      let sx = 0;
+      let sy = 0;
+      let sw = imgW;
+      let sh = imgH;
+
+      if (imgRatio > viewRatio) {
+        sw = imgH * viewRatio;
+        sx = (imgW - sw) * (cam.x / Math.max(1, world.w - viewportW));
+      } else {
+        sh = imgW / viewRatio;
+        sy = (imgH - sh) * (cam.y / Math.max(1, world.h - viewportH));
+      }
+
+      ctx.drawImage(cityBackground, sx, sy, sw, sh, 0, 0, viewportW, viewportH);
+
+      const shade = ctx.createLinearGradient(0, 0, 0, viewportH);
+      shade.addColorStop(0, "rgba(5, 5, 12, 0.16)");
+      shade.addColorStop(0.52, "rgba(0, 0, 0, 0.10)");
+      shade.addColorStop(1, "rgba(0, 0, 0, 0.34)");
+      ctx.fillStyle = shade;
+      ctx.fillRect(0, 0, viewportW, viewportH);
+      return true;
     }
 
     function drawNpc(npc, cam) {
@@ -814,12 +853,16 @@
       const cam = camera();
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
-      const gradient = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
-      gradient.addColorStop(0, "#101024");
-      gradient.addColorStop(0.5, "#080914");
-      gradient.addColorStop(1, "#050507");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+      const hasGeneratedBackground = drawGeneratedBackground(cam);
+
+      if (!hasGeneratedBackground) {
+        const gradient = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+        gradient.addColorStop(0, "#101024");
+        gradient.addColorStop(0.5, "#080914");
+        gradient.addColorStop(1, "#050507");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+      }
 
       for (let i = 0; i < 40; i += 1) {
         const sx = (i * 97 - cam.x * 0.2) % window.innerWidth;
@@ -832,8 +875,10 @@
       ctx.translate(-cam.x, -cam.y);
       drawGround(cam);
 
-      for (const building of buildings) {
-        drawBuilding(building);
+      if (!hasGeneratedBackground) {
+        for (const building of buildings) {
+          drawBuilding(building);
+        }
       }
 
       for (let y = 120; y < world.h; y += 260) {
@@ -852,19 +897,21 @@
         }
       }
 
-      for (const sign of signs) {
-        ctx.save();
-        ctx.shadowBlur = 22;
-        ctx.shadowColor = sign.color;
-        ctx.fillStyle = sign.color;
-        drawRoundRect(sign.x, sign.y, sign.w, sign.h, 7);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = sign.color === "#ffe63e" || sign.color === "#5bff7b" ? "#111" : "#fff";
-        ctx.font = "900 18px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(sign.text, sign.x + sign.w / 2, sign.y + sign.h / 2 + 6);
-        ctx.restore();
+      if (!hasGeneratedBackground) {
+        for (const sign of signs) {
+          ctx.save();
+          ctx.shadowBlur = 22;
+          ctx.shadowColor = sign.color;
+          ctx.fillStyle = sign.color;
+          drawRoundRect(sign.x, sign.y, sign.w, sign.h, 7);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = sign.color === "#ffe63e" || sign.color === "#5bff7b" ? "#111" : "#fff";
+          ctx.font = "900 18px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(sign.text, sign.x + sign.w / 2, sign.y + sign.h / 2 + 6);
+          ctx.restore();
+        }
       }
 
       const sorted = [...npcs].sort((a, b) => a.y - b.y);
