@@ -274,7 +274,7 @@
     <button id="bonk" class="btn" type="button">ツッコミ</button>
     <button id="pose" class="btn" type="button">ポーズ</button>
   </div>
-  <div class="help">WASD / 矢印: 移動 · Shift: ダッシュ · Space/F: ツッコミ · E: 客引き · G: ポーズ</div>
+  <div class="help">WASD / 矢印: 移動 · 地面クリック/タップ: そこへ移動 · Shift: ダッシュ · Space/F: ツッコミ · E: 近くの相手にアクション</div>
 
   <script>
     const canvas = document.getElementById("game");
@@ -334,6 +334,8 @@
     let playerMoving = false;
     let playerWalkTime = 0;
     let afterImages = [];
+    let moveTarget = null;
+    const cameraState = { x: 0, y: 0 };
 
     const player = {
       x: world.w / 2 - 72,
@@ -347,6 +349,14 @@
       trouble: 0,
       combo: 1,
     };
+
+    function roadLeft() {
+      return world.w / 2 - 315;
+    }
+
+    function roadRight() {
+      return world.w / 2 + 315;
+    }
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -382,7 +392,7 @@
         type,
         variant: trouble ? (Math.random() < 0.62 ? "female" : "male") : (Math.random() < 0.70 ? "female" : "male"),
         label: trouble ? pick(troubleLabels) : pick(customerLabels),
-        x: rand(world.w / 2 - 285, world.w / 2 + 285),
+        x: rand(roadLeft() + 30, roadRight() - 30),
         y: rand(260, world.h - 170),
         r: trouble ? 18 : 16,
         color: trouble ? pick(["#ff472d", "#ff742a", "#ff2a91", "#ffe63e"]) : pick(["#24dbff", "#5bff7b", "#ffe63e", "#ff2a91"]),
@@ -594,6 +604,19 @@
       if (keys.has("arrowright") || keys.has("d")) x += 1;
       if (keys.has("arrowup") || keys.has("w")) y -= 1;
       if (keys.has("arrowdown") || keys.has("s")) y += 1;
+      if (Math.hypot(x, y) < 0.05 && moveTarget) {
+        const dx = moveTarget.x - player.x;
+        const dy = moveTarget.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 18) {
+          moveTarget = null;
+        } else {
+          x = dx / dist;
+          y = dy / dist;
+        }
+      } else if (Math.hypot(x, y) > 0.05) {
+        moveTarget = null;
+      }
       const len = Math.hypot(x, y);
       if (len > 1) return { x: x / len, y: y / len };
       return { x, y };
@@ -602,7 +625,7 @@
     function update(dt) {
       const now = performance.now();
       const move = inputVector();
-      const speed = dashUntil > now ? 430 : 230;
+      const speed = dashUntil > now ? 560 : 285;
       playerMoving = Math.hypot(move.x, move.y) > 0.05;
       if (playerMoving) {
         playerWalkTime += dt * (dashUntil > now ? 18 : 10);
@@ -610,7 +633,7 @@
       if (playerMoving && dashUntil > now && Math.random() < 0.45) {
         afterImages.push({ x: player.x, y: player.y, facing: player.facing, life: 0.28 });
       }
-      player.x = Math.max(70, Math.min(world.w - 70, player.x + move.x * speed * dt));
+      player.x = Math.max(roadLeft() + 20, Math.min(roadRight() - 20, player.x + move.x * speed * dt));
       player.y = Math.max(80, Math.min(world.h - 70, player.y + move.y * speed * dt));
       if (playerMoving) player.facing = Math.atan2(move.y, move.x);
 
@@ -631,7 +654,7 @@
 
         npc.x += npc.vx * dt;
         npc.y += npc.vy * dt;
-        if (npc.x < 120 || npc.x > world.w - 120) npc.vx *= -1;
+        if (npc.x < roadLeft() + 20 || npc.x > roadRight() - 20) npc.vx *= -1;
         if (npc.y < 120 || npc.y > world.h - 120) npc.vy *= -1;
         if (Math.random() < 0.01) {
           npc.vx = rand(-36, 36);
@@ -666,10 +689,19 @@
     }
 
     function camera() {
-      return {
-        x: Math.max(0, Math.min(world.w - window.innerWidth, player.x - window.innerWidth / 2)),
-        y: Math.max(0, Math.min(world.h - window.innerHeight, player.y - window.innerHeight / 2)),
-      };
+      const marginX = Math.min(260, window.innerWidth * 0.28);
+      const marginY = Math.min(180, window.innerHeight * 0.26);
+      const screenX = player.x - cameraState.x;
+      const screenY = player.y - cameraState.y;
+
+      if (screenX < marginX) cameraState.x = player.x - marginX;
+      if (screenX > window.innerWidth - marginX) cameraState.x = player.x - (window.innerWidth - marginX);
+      if (screenY < marginY) cameraState.y = player.y - marginY;
+      if (screenY > window.innerHeight - marginY) cameraState.y = player.y - (window.innerHeight - marginY);
+
+      cameraState.x = Math.max(0, Math.min(world.w - window.innerWidth, cameraState.x));
+      cameraState.y = Math.max(0, Math.min(world.h - window.innerHeight, cameraState.y));
+      return cameraState;
     }
 
     function drawRoundRect(x, y, w, h, r) {
@@ -1012,6 +1044,26 @@
         }
       }
 
+      if (moveTarget) {
+        const pulse = 0.65 + Math.sin(performance.now() / 120) * 0.25;
+        ctx.save();
+        ctx.strokeStyle = "#24dbff";
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "#24dbff";
+        ctx.globalAlpha = pulse;
+        ctx.beginPath();
+        ctx.arc(moveTarget.x, moveTarget.y, 24, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(moveTarget.x - 16, moveTarget.y);
+        ctx.lineTo(moveTarget.x + 16, moveTarget.y);
+        ctx.moveTo(moveTarget.x, moveTarget.y - 16);
+        ctx.lineTo(moveTarget.x, moveTarget.y + 16);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       for (let y = 120; y < world.h; y += 260) {
         for (const gateColor of ["#24dbff", "#ff2a91"]) {
           ctx.strokeStyle = gateColor;
@@ -1122,8 +1174,19 @@
       els.bonk.addEventListener("pointerdown", bonk);
       els.pose.addEventListener("pointerdown", pose);
       canvas.addEventListener("pointerdown", (event) => {
-        if (event.clientX < window.innerWidth * 0.55) return;
-        interact();
+        const cam = camera();
+        const worldX = Math.max(roadLeft() + 20, Math.min(roadRight() - 20, event.clientX + cam.x));
+        const worldY = Math.max(80, Math.min(world.h - 70, event.clientY + cam.y));
+
+        const nearTrouble = nearestNpc("trouble", 92);
+        const nearCustomer = nearestNpc("customer", 72);
+        if (event.clientX > window.innerWidth * 0.62 && (nearTrouble || nearCustomer)) {
+          interact();
+          return;
+        }
+
+        moveTarget = { x: worldX, y: worldY };
+        spawnParticle(worldX, worldY - 16, "移動", "#24dbff");
       });
 
       let stickPointer = null;
