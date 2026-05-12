@@ -310,11 +310,15 @@
     const sprites = {
       player: new Image(),
       customer: new Image(),
+      customerFemale: new Image(),
       trouble: new Image(),
+      troubleFemale: new Image(),
     };
     sprites.player.src = "assets/characters/player-host.png";
     sprites.customer.src = "assets/characters/customer.png";
+    sprites.customerFemale.src = "assets/characters/customer-female.png";
     sprites.trouble.src = "assets/characters/troublemaker.png";
+    sprites.troubleFemale.src = "assets/characters/troublemaker-female.png";
 
     let dpr = 1;
     let last = performance.now();
@@ -327,6 +331,9 @@
     let bonkCooldown = 0;
     let lastInteraction = null;
     let touchMove = { x: 0, y: 0 };
+    let playerMoving = false;
+    let playerWalkTime = 0;
+    let afterImages = [];
 
     const player = {
       x: world.w / 2 - 72,
@@ -373,6 +380,7 @@
       const trouble = type === "trouble";
       return {
         type,
+        variant: trouble ? (Math.random() < 0.62 ? "female" : "male") : (Math.random() < 0.70 ? "female" : "male"),
         label: trouble ? pick(troubleLabels) : pick(customerLabels),
         x: rand(world.w / 2 - 285, world.w / 2 + 285),
         y: rand(260, world.h - 170),
@@ -403,6 +411,7 @@
       ];
       for (let i = 0; i < nearStart.length; i += 1) {
         npcs[i].type = nearStart[i].type;
+        npcs[i].variant = i === 0 || i === 2 ? "female" : "male";
         npcs[i].label = nearStart[i].type === "trouble" ? troubleLabels[i % troubleLabels.length] : customerLabels[i % customerLabels.length];
         npcs[i].x = nearStart[i].x;
         npcs[i].y = nearStart[i].y;
@@ -594,9 +603,16 @@
       const now = performance.now();
       const move = inputVector();
       const speed = dashUntil > now ? 430 : 230;
+      playerMoving = Math.hypot(move.x, move.y) > 0.05;
+      if (playerMoving) {
+        playerWalkTime += dt * (dashUntil > now ? 18 : 10);
+      }
+      if (playerMoving && dashUntil > now && Math.random() < 0.45) {
+        afterImages.push({ x: player.x, y: player.y, facing: player.facing, life: 0.28 });
+      }
       player.x = Math.max(70, Math.min(world.w - 70, player.x + move.x * speed * dt));
       player.y = Math.max(80, Math.min(world.h - 70, player.y + move.y * speed * dt));
-      if (Math.hypot(move.x, move.y) > 0.05) player.facing = Math.atan2(move.y, move.x);
+      if (playerMoving) player.facing = Math.atan2(move.y, move.x);
 
       player.combo = Math.max(1, player.combo - dt * 0.06);
       nextChaos -= dt;
@@ -638,6 +654,11 @@
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      for (let i = afterImages.length - 1; i >= 0; i -= 1) {
+        afterImages[i].life -= dt;
+        if (afterImages[i].life <= 0) afterImages.splice(i, 1);
       }
 
       if (toastUntil < now) els.toast.classList.remove("show");
@@ -802,7 +823,9 @@
     function drawNpc(npc, cam) {
       const x = npc.x - cam.x;
       const y = npc.y - cam.y;
-      const sprite = npc.type === "trouble" ? sprites.trouble : sprites.customer;
+      const sprite = npc.type === "trouble"
+        ? (npc.variant === "female" ? sprites.troubleFemale : sprites.trouble)
+        : (npc.variant === "female" ? sprites.customerFemale : sprites.customer);
       const now = performance.now();
       const isHit = npc.hitUntil > now;
       const active = nearestNpc(npc.type, npc.type === "trouble" ? 92 : 72) === npc;
@@ -829,13 +852,14 @@
       }
 
       if (sprite.complete && sprite.naturalWidth > 0) {
-        const size = npc.type === "trouble" ? 102 : 94;
+        const size = npc.type === "trouble" ? 108 : 102;
         const aspect = sprite.naturalWidth / sprite.naturalHeight;
         const drawH = size;
         const drawW = drawH * aspect;
+        const bob = Math.sin((performance.now() / 250) + npc.x * 0.01) * 3;
         ctx.shadowBlur = 22;
         ctx.shadowColor = npc.type === "trouble" ? "#ff472d" : "#24dbff";
-        ctx.drawImage(sprite, x - drawW / 2, y - drawH + 30, drawW, drawH);
+        ctx.drawImage(sprite, x - drawW / 2, y - drawH + 30 + bob, drawW, drawH);
         ctx.shadowBlur = 0;
       } else {
         ctx.shadowBlur = 16;
@@ -866,9 +890,29 @@
     function drawPlayer(cam) {
       const x = player.x - cam.x;
       const y = player.y - cam.y;
+      const bob = playerMoving ? Math.sin(playerWalkTime) * 5 : Math.sin(performance.now() / 420) * 1.4;
+      const tilt = playerMoving ? Math.sin(playerWalkTime * 0.5) * 0.08 : 0;
+      const lean = playerMoving ? Math.cos(player.facing) * 5 : 0;
+
+      for (const ghost of afterImages) {
+        if (!sprites.player.complete || sprites.player.naturalWidth === 0) continue;
+        const gx = ghost.x - cam.x;
+        const gy = ghost.y - cam.y;
+        const drawH = 116;
+        const drawW = drawH * (sprites.player.naturalWidth / sprites.player.naturalHeight);
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ghost.life / 0.28) * 0.32;
+        ctx.translate(gx, gy);
+        ctx.rotate(ghost.facing + tilt);
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = "#24dbff";
+        ctx.drawImage(sprites.player, -drawW / 2, -drawH + 38, drawW, drawH);
+        ctx.restore();
+      }
+
       ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(player.facing);
+      ctx.translate(x + lean, y + bob);
+      ctx.rotate(player.facing + tilt);
       ctx.strokeStyle = "rgba(255,230,62,0.82)";
       ctx.lineWidth = 3;
       ctx.shadowBlur = 18;
@@ -883,7 +927,7 @@
       if (sprites.player.complete && sprites.player.naturalWidth > 0) {
         const drawH = poseUntil > performance.now() ? 126 : 116;
         const drawW = drawH * (sprites.player.naturalWidth / sprites.player.naturalHeight);
-        ctx.rotate(-player.facing);
+        ctx.rotate(-(player.facing + tilt));
         ctx.shadowBlur = poseUntil > performance.now() ? 34 : 24;
         ctx.shadowColor = "#ff2a91";
         ctx.drawImage(sprites.player, -drawW / 2, -drawH + 38, drawW, drawH);
@@ -913,10 +957,27 @@
       ctx.textAlign = "center";
       ctx.strokeStyle = "rgba(0,0,0,0.84)";
       ctx.lineWidth = 4;
-      ctx.strokeText("あなた", x, y - 70);
+      ctx.strokeText("あなた", x, y - 74 + bob);
       ctx.fillStyle = "#ffe63e";
-      ctx.fillText("あなた", x, y - 70);
+      ctx.fillText("あなた", x, y - 74 + bob);
       ctx.restore();
+
+      if (playerMoving) {
+        ctx.save();
+        ctx.globalAlpha = 0.65;
+        ctx.strokeStyle = dashUntil > performance.now() ? "#24dbff" : "#ffe63e";
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = ctx.strokeStyle;
+        for (let i = 0; i < 3; i += 1) {
+          const offset = (i - 1) * 10;
+          ctx.beginPath();
+          ctx.moveTo(x - Math.cos(player.facing) * (28 + i * 8), y + 22 + offset * 0.1);
+          ctx.lineTo(x - Math.cos(player.facing) * (52 + i * 10), y + 22 + offset);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
 
     function render() {

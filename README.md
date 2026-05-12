@@ -37,6 +37,7 @@ npm run smoke:pages
 - 近距離BONK/PUSH PvP
 - 迷惑NPCをコメディ調に退場させるTroublePoints
 - AI生成キャラ画像によるプレイヤー/客/迷惑NPCスプライト
+- 女性NPCを多めに配置し、客引き/ツッコミ退場の近距離インタラクションを強化
 - NPC群衆とProximityPromptによる客集め
 - Money / Reputation / Charisma / ClubRank
 - ランキング取得
