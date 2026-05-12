@@ -301,6 +301,8 @@
     const world = { w: 2200, h: 1500 };
     const keys = new Set();
     const particles = [];
+    const shockwaves = [];
+    const hitSparks = [];
     const npcs = [];
     const signs = [];
     const buildings = [];
@@ -335,6 +337,10 @@
     let playerWalkTime = 0;
     let afterImages = [];
     let moveTarget = null;
+    let hitStopUntil = 0;
+    let screenShakeUntil = 0;
+    let screenShakePower = 0;
+    let finisherText = null;
     const cameraState = { x: 0, y: 0 };
 
     const player = {
@@ -383,7 +389,33 @@
     }
 
     function spawnParticle(x, y, text, color) {
-      particles.push({ x, y, text, color, life: 1, vy: -60, vx: rand(-24, 24) });
+      particles.push({ x, y, text, color, life: 1, maxLife: 1, vy: -60, vx: rand(-24, 24), size: 20 });
+    }
+
+    function spawnHitImpact(x, y, label, points) {
+      const now = performance.now();
+      hitStopUntil = now + 80;
+      screenShakeUntil = now + 360;
+      screenShakePower = Math.min(20, 10 + points * 4);
+      finisherText = { text: `${label}退場！`, x, y: y - 96, until: now + 820 };
+      shockwaves.push({ x, y, life: 0.42, maxLife: 0.42, color: "#ffef63" });
+      shockwaves.push({ x, y, life: 0.30, maxLife: 0.30, color: "#ff472d" });
+
+      for (let i = 0; i < 18; i += 1) {
+        const angle = (Math.PI * 2 * i) / 18 + rand(-0.12, 0.12);
+        const speed = rand(120, 260);
+        hitSparks.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: rand(0.22, 0.42),
+          maxLife: 0.42,
+          color: i % 3 === 0 ? "#ffffff" : (i % 2 === 0 ? "#ffef63" : "#ff472d"),
+        });
+      }
+
+      particles.push({ x, y: y - 52, text: `迷惑退治+${points}`, color: "#ffef63", life: 0.92, maxLife: 0.92, vy: -92, vx: rand(-18, 18), size: 30 });
     }
 
     function createNpc(type) {
@@ -515,7 +547,7 @@
     }
 
     function interact() {
-      const trouble = nearestNpc("trouble", 92);
+      const trouble = nearestNpc("trouble", 135);
       if (trouble) {
         bonk();
         return;
@@ -550,18 +582,23 @@
       for (const npc of npcs) {
         if (npc.type !== "trouble" || npc.hitUntil > now) continue;
         const d = distance(player, npc);
-        if (d > 88) continue;
+        if (d > 135) continue;
         const dx = npc.x - player.x || Math.cos(player.facing);
         const dy = npc.y - player.y || Math.sin(player.facing);
         const len = Math.hypot(dx, dy) || 1;
+        if (d > 74) {
+          player.x += (dx / len) * Math.min(42, d - 74);
+          player.y += (dy / len) * Math.min(42, d - 74);
+        }
         npc.knockX = (dx / len) * 170;
         npc.knockY = (dy / len) * 170 - 60;
         npc.hitUntil = now + 460;
-        player.trouble += npc.label === "クソ客" ? 2 : 1;
+        const points = npc.label === "クソ客" ? 2 : 1;
+        player.trouble += points;
         player.rep += npc.label === "クソ客" ? 16 : 11;
         player.money += 10;
-        player.combo = Math.min(3, player.combo + 0.18);
-        spawnParticle(npc.x, npc.y, npc.label === "クソ客" ? "退治+2" : "退治+1", "#ffef63");
+        player.combo = Math.min(5, player.combo + 0.28);
+        spawnHitImpact(npc.x, npc.y, npc.label, points);
         spawnParticle((player.x + npc.x) / 2, (player.y + npc.y) / 2 - 36, "ドンッ!", "#ff472d");
         showToast(`${npc.label}をツッコミ退場！`, "#ff472d");
         lastInteraction = { type: "bonk", x1: player.x, y1: player.y - 48, x2: npc.x, y2: npc.y - 58, until: now + 320 };
@@ -624,6 +661,9 @@
 
     function update(dt) {
       const now = performance.now();
+      if (now < hitStopUntil) {
+        dt *= 0.08;
+      }
       const move = inputVector();
       const speed = dashUntil > now ? 560 : 285;
       playerMoving = Math.hypot(move.x, move.y) > 0.05;
@@ -677,6 +717,20 @@
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      for (let i = shockwaves.length - 1; i >= 0; i -= 1) {
+        shockwaves[i].life -= dt;
+        if (shockwaves[i].life <= 0) shockwaves.splice(i, 1);
+      }
+
+      for (let i = hitSparks.length - 1; i >= 0; i -= 1) {
+        const spark = hitSparks[i];
+        spark.life -= dt;
+        spark.x += spark.vx * dt;
+        spark.y += spark.vy * dt;
+        spark.vy += 260 * dt;
+        if (spark.life <= 0) hitSparks.splice(i, 1);
       }
 
       for (let i = afterImages.length - 1; i >= 0; i -= 1) {
@@ -1014,6 +1068,17 @@
 
     function render() {
       const cam = camera();
+      const now = performance.now();
+      let shakeX = 0;
+      let shakeY = 0;
+      if (screenShakeUntil > now) {
+        const t = (screenShakeUntil - now) / 360;
+        shakeX = rand(-screenShakePower, screenShakePower) * t;
+        shakeY = rand(-screenShakePower, screenShakePower) * t;
+      }
+
+      ctx.save();
+      ctx.translate(shakeX, shakeY);
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
       const hasGeneratedBackground = drawGeneratedBackground(cam);
@@ -1101,6 +1166,35 @@
       for (const npc of sorted) drawNpc(npc, { x: 0, y: 0 });
       drawPlayer({ x: 0, y: 0 });
 
+      for (const wave of shockwaves) {
+        const progress = 1 - wave.life / wave.maxLife;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 1 - progress);
+        ctx.strokeStyle = wave.color;
+        ctx.lineWidth = 8 * (1 - progress) + 2;
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = wave.color;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, 24 + progress * 110, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      for (const spark of hitSparks) {
+        const alpha = Math.max(0, spark.life / spark.maxLife);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = spark.color;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = spark.color;
+        ctx.beginPath();
+        ctx.moveTo(spark.x, spark.y);
+        ctx.lineTo(spark.x - spark.vx * 0.045, spark.y - spark.vy * 0.045);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       if (lastInteraction && lastInteraction.until > performance.now()) {
         const alpha = (lastInteraction.until - performance.now()) / 520;
         ctx.save();
@@ -1133,22 +1227,46 @@
       ctx.globalAlpha = 1;
 
       for (const p of particles) {
-        ctx.globalAlpha = Math.max(0, p.life);
+        const alpha = Math.max(0, p.life / (p.maxLife || 1));
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = p.color;
-        ctx.font = "900 20px Arial";
+        ctx.font = `900 ${p.size || 20}px Arial`;
         ctx.textAlign = "center";
         ctx.shadowBlur = 12;
         ctx.shadowColor = p.color;
+        ctx.strokeStyle = "rgba(0,0,0,0.80)";
+        ctx.lineWidth = 5;
+        ctx.strokeText(p.text, p.x, p.y);
         ctx.fillText(p.text, p.x, p.y);
         ctx.shadowBlur = 0;
       }
       ctx.globalAlpha = 1;
+
+      if (finisherText && finisherText.until > now) {
+        const remaining = (finisherText.until - now) / 820;
+        const scale = 1 + (1 - remaining) * 0.32;
+        ctx.save();
+        ctx.translate(finisherText.x, finisherText.y);
+        ctx.scale(scale, scale);
+        ctx.globalAlpha = Math.min(1, remaining * 1.8);
+        ctx.font = "900 34px Arial";
+        ctx.textAlign = "center";
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = "rgba(0,0,0,0.86)";
+        ctx.fillStyle = "#ffef63";
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = "#ff472d";
+        ctx.strokeText(finisherText.text, 0, 0);
+        ctx.fillText(finisherText.text, 0, 0);
+        ctx.restore();
+      }
       ctx.restore();
 
       if (chaosUntil > performance.now()) {
         ctx.fillStyle = "rgba(255,230,62,0.08)";
         ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
       }
+      ctx.restore();
     }
 
     function frame(now) {
@@ -1178,7 +1296,7 @@
         const worldX = Math.max(roadLeft() + 20, Math.min(roadRight() - 20, event.clientX + cam.x));
         const worldY = Math.max(80, Math.min(world.h - 70, event.clientY + cam.y));
 
-        const nearTrouble = nearestNpc("trouble", 92);
+      const nearTrouble = nearestNpc("trouble", 135);
         const nearCustomer = nearestNpc("customer", 72);
         if (event.clientX > window.innerWidth * 0.62 && (nearTrouble || nearCustomer)) {
           interact();
