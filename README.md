@@ -39,6 +39,7 @@ npm run smoke:pages
 - AI生成キャラ画像によるプレイヤー/客/迷惑NPCスプライト
 - 女性NPCを多めに配置し、客引き/ツッコミ退場の近距離インタラクションを強化
 - WASD/矢印/クリック移動で街を走り回るアクション操作
+- ウェーブ制ミッション、店演出強化、簡易効果音
 - NPC群衆とProximityPromptによる客集め
 - Money / Reputation / Charisma / ClubRank
 - ランキング取得

@@ -89,6 +89,31 @@
       font-weight: 800;
     }
 
+    .mission {
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.55;
+    }
+
+    .mission-bar {
+      height: 8px;
+      margin-top: 5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+    }
+
+    .mission-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #24dbff, #ffe63e, #ff2a91);
+      box-shadow: 0 0 14px rgba(255, 230, 62, 0.65);
+      transition: width 120ms ease;
+    }
+
     .ranking-title {
       color: #ffe63e;
       font-size: 14px;
@@ -137,7 +162,7 @@
       right: 16px;
       bottom: 16px;
       display: grid;
-      grid-template-columns: repeat(3, 72px);
+      grid-template-columns: repeat(4, 72px);
       gap: 10px;
       z-index: 7;
     }
@@ -224,7 +249,7 @@
       }
 
       .controls {
-        grid-template-columns: repeat(3, 64px);
+        grid-template-columns: repeat(4, 64px);
       }
 
       .btn {
@@ -258,6 +283,11 @@
         <div>迷惑退治: <span id="trouble">0</span></div>
         <div>コンボ: <span id="combo">1.0</span>x</div>
       </div>
+      <div class="mission">
+        <div id="wave">第1波 / 残り60秒</div>
+        <div id="missionText">ミッション準備中</div>
+        <div class="mission-bar"><div id="missionFill" class="mission-fill"></div></div>
+      </div>
     </section>
 
     <section class="panel ranking">
@@ -273,6 +303,7 @@
     <button id="dash" class="btn" type="button">ダッシュ</button>
     <button id="bonk" class="btn" type="button">ツッコミ</button>
     <button id="pose" class="btn" type="button">ポーズ</button>
+    <button id="upgrade" class="btn" type="button">強化</button>
   </div>
   <div class="help">WASD / 矢印: 移動 · 地面クリック/タップ: そこへ移動 · Shift: ダッシュ · Space/F: ツッコミ · E: 近くの相手にアクション</div>
 
@@ -286,12 +317,16 @@
       club: document.getElementById("club"),
       trouble: document.getElementById("trouble"),
       combo: document.getElementById("combo"),
+      wave: document.getElementById("wave"),
+      missionText: document.getElementById("missionText"),
+      missionFill: document.getElementById("missionFill"),
       ranking: document.getElementById("ranking"),
       toast: document.getElementById("toast"),
       stick: document.getElementById("stick"),
       dash: document.getElementById("dash"),
       bonk: document.getElementById("bonk"),
       pose: document.getElementById("pose"),
+      upgrade: document.getElementById("upgrade"),
     };
 
     const neon = ["#ff2a91", "#24dbff", "#ffe63e", "#5bff7b", "#ff742a"];
@@ -342,6 +377,13 @@
     let screenShakePower = 0;
     let finisherText = null;
     const cameraState = { x: 0, y: 0 };
+    let audioContext = null;
+    let mission = null;
+    let wave = 1;
+    let waveEndsAt = performance.now() + 60000;
+    let scoutedThisWave = 0;
+    let clearedThisWave = 0;
+    let upgradedThisWave = 0;
 
     const player = {
       x: world.w / 2 - 72,
@@ -354,6 +396,7 @@
       club: 1,
       trouble: 0,
       combo: 1,
+      upgradeLevel: 1,
     };
 
     function roadLeft() {
@@ -388,6 +431,48 @@
       toastUntil = performance.now() + 1800;
     }
 
+    function ensureAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === "suspended") audioContext.resume();
+    }
+
+    function playTone(freq, duration, type = "square", volume = 0.08, delay = 0) {
+      if (!audioContext) return;
+      const start = audioContext.currentTime + delay;
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(volume, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(start);
+      osc.stop(start + duration + 0.02);
+    }
+
+    function playSfx(kind) {
+      ensureAudio();
+      if (kind === "hit") {
+        playTone(90, 0.07, "sawtooth", 0.16);
+        playTone(520, 0.09, "square", 0.10, 0.02);
+        playTone(980, 0.12, "triangle", 0.08, 0.04);
+      } else if (kind === "scout") {
+        playTone(540, 0.08, "triangle", 0.07);
+        playTone(820, 0.10, "triangle", 0.07, 0.07);
+      } else if (kind === "upgrade") {
+        playTone(420, 0.07, "square", 0.08);
+        playTone(680, 0.08, "square", 0.08, 0.06);
+        playTone(980, 0.12, "square", 0.08, 0.12);
+      } else if (kind === "wave") {
+        playTone(220, 0.09, "sawtooth", 0.08);
+        playTone(440, 0.09, "sawtooth", 0.08, 0.08);
+      }
+    }
+
     function spawnParticle(x, y, text, color) {
       particles.push({ x, y, text, color, life: 1, maxLife: 1, vy: -60, vx: rand(-24, 24), size: 20 });
     }
@@ -416,6 +501,7 @@
       }
 
       particles.push({ x, y: y - 52, text: `迷惑退治+${points}`, color: "#ffef63", life: 0.92, maxLife: 0.92, vy: -92, vx: rand(-18, 18), size: 30 });
+      playSfx("hit");
     }
 
     function createNpc(type) {
@@ -507,6 +593,64 @@
       }
     }
 
+    function makeMission() {
+      const types = [
+        { kind: "scout", label: "客を集めろ", target: 5 + Math.floor(wave * 1.5) },
+        { kind: "clear", label: "迷惑NPCを退場させろ", target: 3 + Math.floor(wave * 1.2) },
+        { kind: "mixed", label: "客引きと退治で街を盛り上げろ", target: 8 + Math.floor(wave * 2) },
+      ];
+      mission = pick(types);
+      scoutedThisWave = 0;
+      clearedThisWave = 0;
+      upgradedThisWave = 0;
+      waveEndsAt = performance.now() + Math.max(38000, 62000 - wave * 1800);
+      showToast(`第${wave}波: ${mission.label}`, "#24dbff");
+      playSfx("wave");
+    }
+
+    function missionProgress() {
+      if (!mission) return 0;
+      if (mission.kind === "scout") return scoutedThisWave;
+      if (mission.kind === "clear") return clearedThisWave;
+      return scoutedThisWave + clearedThisWave;
+    }
+
+    function completeMission() {
+      const reward = 120 + wave * 45 + player.upgradeLevel * 20;
+      player.money += reward;
+      player.rep += 35 + wave * 12;
+      player.combo = Math.min(5, player.combo + 0.6);
+      spawnParticle(player.x, player.y - 120, `ミッション達成 +${reward}円`, "#ffe63e");
+      showToast(`ミッション達成！ +${reward}円`, "#ffe63e");
+      wave += 1;
+      makeMission();
+    }
+
+    function startNextWave() {
+      showToast("時間切れ！ 次の波へ", "#ff742a");
+      wave += 1;
+      makeMission();
+    }
+
+    function upgradeClub() {
+      ensureAudio();
+      const cost = 90 * player.upgradeLevel;
+      if (player.money < cost) {
+        showToast(`強化には${cost}円必要`, "#ff742a");
+        spawnParticle(player.x, player.y - 80, "資金不足", "#ffffff");
+        return;
+      }
+
+      player.money -= cost;
+      player.upgradeLevel += 1;
+      upgradedThisWave += 1;
+      player.rep += 10;
+      player.combo = Math.min(5, player.combo + 0.2);
+      playSfx("upgrade");
+      spawnParticle(player.x, player.y - 96, `店演出Lv.${player.upgradeLevel}`, "#24dbff");
+      showToast(`店演出を強化！ Lv.${player.upgradeLevel}`, "#24dbff");
+    }
+
     function updateStats() {
       player.club = Math.max(1, Math.floor(player.rep / 180) + 1);
       els.money.textContent = String(player.money);
@@ -515,6 +659,12 @@
       els.club.textContent = String(player.club);
       els.trouble.textContent = String(player.trouble);
       els.combo.textContent = player.combo.toFixed(1);
+      if (!mission) makeMission();
+      const remaining = Math.max(0, Math.ceil((waveEndsAt - performance.now()) / 1000));
+      const progress = missionProgress();
+      els.wave.textContent = `第${wave}波 / 残り${remaining}秒 / 演出Lv.${player.upgradeLevel}`;
+      els.missionText.textContent = `${mission.label}: ${Math.min(progress, mission.target)} / ${mission.target}`;
+      els.missionFill.style.width = `${Math.min(100, (progress / mission.target) * 100)}%`;
 
       const rows = [
         { name: "あなた", rep: player.rep, trouble: player.trouble },
@@ -564,13 +714,16 @@
       const rep = Math.floor((6 + player.club) * player.combo * bonus);
       player.money += money;
       player.rep += rep;
+      scoutedThisWave += 1;
       if (Math.random() < 0.28) player.charisma += 1;
       player.combo = Math.min(3, player.combo + 0.1);
       spawnParticle(target.x, target.y, `+${money}円 評判+${rep}`, "#ffe63e");
       spawnParticle((player.x + target.x) / 2, (player.y + target.y) / 2 - 22, "来店!", "#24dbff");
       showToast(`客引き成功: ${target.label}`, "#24dbff");
+      playSfx("scout");
       lastInteraction = { type: "scout", x1: player.x, y1: player.y - 54, x2: target.x, y2: target.y - 70, until: performance.now() + 520 };
       resetNpc(target, "customer");
+      if (mission && missionProgress() >= mission.target) completeMission();
     }
 
     function bonk() {
@@ -595,6 +748,7 @@
         npc.hitUntil = now + 460;
         const points = npc.label === "クソ客" ? 2 : 1;
         player.trouble += points;
+        clearedThisWave += points;
         player.rep += npc.label === "クソ客" ? 16 : 11;
         player.money += 10;
         player.combo = Math.min(5, player.combo + 0.28);
@@ -602,6 +756,7 @@
         spawnParticle((player.x + npc.x) / 2, (player.y + npc.y) / 2 - 36, "ドンッ!", "#ff472d");
         showToast(`${npc.label}をツッコミ退場！`, "#ff472d");
         lastInteraction = { type: "bonk", x1: player.x, y1: player.y - 48, x2: npc.x, y2: npc.y - 58, until: now + 320 };
+        if (mission && missionProgress() >= mission.target) completeMission();
         hit = true;
       }
 
@@ -680,6 +835,7 @@
       player.combo = Math.max(1, player.combo - dt * 0.06);
       nextChaos -= dt;
       if (nextChaos <= 0) startChaos();
+      if (mission && performance.now() > waveEndsAt) startNextWave();
 
       for (const npc of npcs) {
         if (npc.hitUntil > now) {
@@ -1291,6 +1447,7 @@
       els.dash.addEventListener("pointerdown", dash);
       els.bonk.addEventListener("pointerdown", bonk);
       els.pose.addEventListener("pointerdown", pose);
+      els.upgrade.addEventListener("pointerdown", upgradeClub);
       canvas.addEventListener("pointerdown", (event) => {
         const cam = camera();
         const worldX = Math.max(roadLeft() + 20, Math.min(roadRight() - 20, event.clientX + cam.x));
