@@ -282,6 +282,9 @@
         <div>店ランク: <span id="club">1</span></div>
         <div>迷惑退治: <span id="trouble">0</span></div>
         <div>コンボ: <span id="combo">1.0</span>x</div>
+        <div>守った客: <span id="saved">0</span></div>
+        <div>逃げた客: <span id="lost">0</span></div>
+        <div>連続退治: <span id="streak">0</span></div>
       </div>
       <div class="mission">
         <div id="wave">第1波 / 残り60秒</div>
@@ -317,6 +320,9 @@
       club: document.getElementById("club"),
       trouble: document.getElementById("trouble"),
       combo: document.getElementById("combo"),
+      saved: document.getElementById("saved"),
+      lost: document.getElementById("lost"),
+      streak: document.getElementById("streak"),
       wave: document.getElementById("wave"),
       missionText: document.getElementById("missionText"),
       missionFill: document.getElementById("missionFill"),
@@ -384,6 +390,11 @@
     let scoutedThisWave = 0;
     let clearedThisWave = 0;
     let upgradedThisWave = 0;
+    let nextNpcId = 1;
+    let savedCustomers = 0;
+    let lostCustomers = 0;
+    let comboStreak = 0;
+    let comboExpiresAt = 0;
 
     const player = {
       x: world.w / 2 - 72,
@@ -398,6 +409,18 @@
       combo: 1,
       upgradeLevel: 1,
     };
+
+    function bonkRange() {
+      return 126 + Math.min(66, player.upgradeLevel * 8);
+    }
+
+    function scoutRange() {
+      return 72 + Math.min(34, player.upgradeLevel * 4);
+    }
+
+    function upgradeBonus() {
+      return 1 + Math.min(0.55, (player.upgradeLevel - 1) * 0.08);
+    }
 
     function roadLeft() {
       return world.w / 2 - 315;
@@ -507,6 +530,7 @@
     function createNpc(type) {
       const trouble = type === "trouble";
       return {
+        id: nextNpcId += 1,
         type,
         variant: trouble ? (Math.random() < 0.62 ? "female" : "male") : (Math.random() < 0.70 ? "female" : "male"),
         label: trouble ? pick(troubleLabels) : pick(customerLabels),
@@ -520,6 +544,12 @@
         hitUntil: 0,
         knockX: 0,
         knockY: 0,
+        aiMode: trouble ? "wander" : "free",
+        targetId: null,
+        harassedBy: null,
+        harassStartedAt: 0,
+        nextAnnoyAt: 0,
+        savedUntil: 0,
       };
     }
 
@@ -659,6 +689,9 @@
       els.club.textContent = String(player.club);
       els.trouble.textContent = String(player.trouble);
       els.combo.textContent = player.combo.toFixed(1);
+      els.saved.textContent = String(savedCustomers);
+      els.lost.textContent = String(lostCustomers);
+      els.streak.textContent = String(comboStreak);
       if (!mission) makeMission();
       const remaining = Math.max(0, Math.ceil((waveEndsAt - performance.now()) / 1000));
       const progress = missionProgress();
@@ -696,8 +729,90 @@
       return target;
     }
 
+    function npcById(id) {
+      return npcs.find((npc) => npc.id === id);
+    }
+
+    function nearestCustomerFrom(source, range) {
+      let target = null;
+      let best = range;
+      const now = performance.now();
+      for (const npc of npcs) {
+        if (npc.type !== "customer" || npc.hitUntil > now || npc.harassedBy) continue;
+        const d = distance(source, npc);
+        if (d < best) {
+          best = d;
+          target = npc;
+        }
+      }
+      return target;
+    }
+
+    function setNpcVelocityToward(npc, x, y, speed) {
+      const dx = x - npc.x;
+      const dy = y - npc.y;
+      const len = Math.hypot(dx, dy) || 1;
+      npc.vx = (dx / len) * speed;
+      npc.vy = (dy / len) * speed;
+    }
+
+    function registerBonkStreak() {
+      const now = performance.now();
+      comboStreak = now < comboExpiresAt ? comboStreak + 1 : 1;
+      comboExpiresAt = now + 2500;
+      return comboStreak;
+    }
+
+    function clearStreak() {
+      comboStreak = 0;
+      comboExpiresAt = 0;
+    }
+
+    function rescueLinkedCustomer(troubleNpc) {
+      const now = performance.now();
+      const customer = npcs.find((npc) => npc.type === "customer" && npc.harassedBy === troubleNpc.id);
+      if (!customer) return { money: 0, rep: 0 };
+
+      customer.harassedBy = null;
+      customer.harassStartedAt = 0;
+      customer.savedUntil = now + 900;
+      savedCustomers += 1;
+      const money = Math.floor((34 + wave * 3) * upgradeBonus());
+      const rep = 18 + Math.floor(wave * 1.5);
+      spawnParticle(customer.x, customer.y - 66, `救出 +${money}円`, "#5bff7b");
+      spawnParticle(customer.x, customer.y - 92, "客を守った!", "#24dbff");
+      return { money, rep };
+    }
+
+    function customerEscapes(customer, troubleNpc) {
+      lostCustomers += 1;
+      player.rep = Math.max(0, player.rep - 12);
+      player.combo = Math.max(1, player.combo - 0.6);
+      clearStreak();
+      customer.harassedBy = null;
+      customer.harassStartedAt = 0;
+      if (troubleNpc) troubleNpc.targetId = null;
+      screenShakeUntil = performance.now() + 260;
+      screenShakePower = Math.max(screenShakePower, 8);
+      spawnParticle(customer.x, customer.y - 64, "客が逃げた! 評判-12", "#ff742a");
+      showToast("迷惑NPCを放置して客が逃げた！", "#ff742a");
+      resetNpc(customer, "customer");
+    }
+
+    function annoyPlayer(npc) {
+      const now = performance.now();
+      if (npc.nextAnnoyAt > now) return;
+      npc.nextAnnoyAt = now + Math.max(620, 1250 - wave * 45);
+      player.rep = Math.max(0, player.rep - 5);
+      player.combo = Math.max(1, player.combo - 0.35);
+      clearStreak();
+      screenShakeUntil = now + 180;
+      screenShakePower = Math.max(screenShakePower, 6);
+      spawnParticle(player.x, player.y - 76, "妨害! 評判-5", "#ff472d");
+    }
+
     function interact() {
-      const trouble = nearestNpc("trouble", 135);
+      const trouble = nearestNpc("trouble", bonkRange());
       if (trouble) {
         bonk();
         return;
@@ -706,12 +821,12 @@
     }
 
     function scout() {
-      const target = nearestNpc("customer", 72);
+      const target = nearestNpc("customer", scoutRange());
       if (!target) return;
 
       const bonus = chaosUntil > performance.now() ? 2 : 1;
-      const money = Math.floor((18 + player.club * 2) * player.combo * bonus);
-      const rep = Math.floor((6 + player.club) * player.combo * bonus);
+      const money = Math.floor((18 + player.club * 2) * player.combo * bonus * upgradeBonus());
+      const rep = Math.floor((6 + player.club) * player.combo * bonus * upgradeBonus());
       player.money += money;
       player.rep += rep;
       scoutedThisWave += 1;
@@ -735,7 +850,7 @@
       for (const npc of npcs) {
         if (npc.type !== "trouble" || npc.hitUntil > now) continue;
         const d = distance(player, npc);
-        if (d > 135) continue;
+        if (d > bonkRange()) continue;
         const dx = npc.x - player.x || Math.cos(player.facing);
         const dy = npc.y - player.y || Math.sin(player.facing);
         const len = Math.hypot(dx, dy) || 1;
@@ -746,15 +861,19 @@
         npc.knockX = (dx / len) * 170;
         npc.knockY = (dy / len) * 170 - 60;
         npc.hitUntil = now + 460;
+        const streak = registerBonkStreak();
+        const rescue = rescueLinkedCustomer(npc);
         const points = npc.label === "クソ客" ? 2 : 1;
+        const streakBonus = Math.min(34, Math.max(0, streak - 1) * 5);
         player.trouble += points;
         clearedThisWave += points;
-        player.rep += npc.label === "クソ客" ? 16 : 11;
-        player.money += 10;
+        player.rep += (npc.label === "クソ客" ? 16 : 11) + rescue.rep + Math.floor(streakBonus * 0.45);
+        player.money += Math.floor((10 + rescue.money + streakBonus) * upgradeBonus());
         player.combo = Math.min(5, player.combo + 0.28);
         spawnHitImpact(npc.x, npc.y, npc.label, points);
         spawnParticle((player.x + npc.x) / 2, (player.y + npc.y) / 2 - 36, "ドンッ!", "#ff472d");
-        showToast(`${npc.label}をツッコミ退場！`, "#ff472d");
+        if (streak >= 2) spawnParticle(npc.x, npc.y - 106, `${streak}連続退治!`, "#ffe63e");
+        showToast(`${npc.label}をツッコミ退場！ ${streak}連続`, "#ff472d");
         lastInteraction = { type: "bonk", x1: player.x, y1: player.y - 48, x2: npc.x, y2: npc.y - 58, until: now + 320 };
         if (mission && missionProgress() >= mission.target) completeMission();
         hit = true;
@@ -833,6 +952,7 @@
       if (playerMoving) player.facing = Math.atan2(move.y, move.x);
 
       player.combo = Math.max(1, player.combo - dt * 0.06);
+      if (comboStreak > 0 && now > comboExpiresAt) clearStreak();
       nextChaos -= dt;
       if (nextChaos <= 0) startChaos();
       if (mission && performance.now() > waveEndsAt) startNextWave();
@@ -848,11 +968,63 @@
           continue;
         }
 
+        if (npc.type === "customer" && npc.harassedBy) {
+          const troubleNpc = npcById(npc.harassedBy);
+          if (!troubleNpc || troubleNpc.hitUntil > now) {
+            npc.harassedBy = null;
+            npc.harassStartedAt = 0;
+          } else if (distance(npc, troubleNpc) > 175) {
+            npc.harassedBy = null;
+            npc.harassStartedAt = 0;
+          } else if (now - npc.harassStartedAt > Math.max(1300, 3000 - wave * 90)) {
+            customerEscapes(npc, troubleNpc);
+            continue;
+          } else {
+            const dx = npc.x - troubleNpc.x;
+            const dy = npc.y - troubleNpc.y;
+            const len = Math.hypot(dx, dy) || 1;
+            npc.vx = (dx / len) * 30;
+            npc.vy = (dy / len) * 30;
+          }
+        }
+
+        if (npc.type === "trouble") {
+          const playerDistance = distance(player, npc);
+          const targetedCustomer = npc.targetId ? npcById(npc.targetId) : null;
+          const nearbyCustomer = targetedCustomer && targetedCustomer.type === "customer" && !targetedCustomer.harassedBy
+            ? targetedCustomer
+            : nearestCustomerFrom(npc, 210 + wave * 8);
+
+          if (playerDistance < 54) {
+            annoyPlayer(npc);
+          }
+
+          if (playerDistance < 210) {
+            npc.aiMode = "huntPlayer";
+            setNpcVelocityToward(npc, player.x, player.y, 72 + wave * 4);
+          } else if (nearbyCustomer) {
+            npc.aiMode = "harassCustomer";
+            npc.targetId = nearbyCustomer.id;
+            setNpcVelocityToward(npc, nearbyCustomer.x, nearbyCustomer.y, 58 + wave * 3);
+            if (distance(npc, nearbyCustomer) < 52) {
+              nearbyCustomer.harassedBy = npc.id;
+              nearbyCustomer.harassStartedAt = nearbyCustomer.harassStartedAt || now;
+              spawnParticle(nearbyCustomer.x, nearbyCustomer.y - 70, "救出!", "#ffef63");
+            }
+          } else if (Math.random() < 0.012) {
+            npc.aiMode = "wander";
+            npc.vx = rand(-42, 42);
+            npc.vy = rand(-34, 34);
+          }
+        }
+
         npc.x += npc.vx * dt;
         npc.y += npc.vy * dt;
+        npc.x = Math.max(roadLeft() + 18, Math.min(roadRight() - 18, npc.x));
+        npc.y = Math.max(105, Math.min(world.h - 105, npc.y));
         if (npc.x < roadLeft() + 20 || npc.x > roadRight() - 20) npc.vx *= -1;
         if (npc.y < 120 || npc.y > world.h - 120) npc.vy *= -1;
-        if (Math.random() < 0.01) {
+        if (npc.type !== "trouble" && Math.random() < 0.01) {
           npc.vx = rand(-36, 36);
           npc.vy = rand(-30, 30);
         }
@@ -1070,7 +1242,8 @@
         : (npc.variant === "female" ? sprites.customerFemale : sprites.customer);
       const now = performance.now();
       const isHit = npc.hitUntil > now;
-      const active = nearestNpc(npc.type, npc.type === "trouble" ? 92 : 72) === npc;
+      const harassed = npc.type === "customer" && npc.harassedBy;
+      const active = nearestNpc(npc.type, npc.type === "trouble" ? bonkRange() : scoutRange()) === npc;
 
       ctx.save();
       if (isHit) {
@@ -1083,13 +1256,13 @@
       ctx.ellipse(x, y + npc.r * 1.35, npc.r * 1.35, npc.r * 0.42, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      if (active) {
-        ctx.strokeStyle = npc.type === "trouble" ? "#ffef63" : "#24dbff";
+      if (active || harassed || npc.savedUntil > now) {
+        ctx.strokeStyle = harassed ? "#ff472d" : (npc.savedUntil > now ? "#5bff7b" : (npc.type === "trouble" ? "#ffef63" : "#24dbff"));
         ctx.lineWidth = 3;
         ctx.shadowBlur = 14;
         ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath();
-        ctx.arc(x, y + 4, npc.type === "trouble" ? 46 : 40, 0, Math.PI * 2);
+        ctx.arc(x, y + 4, harassed ? 52 + Math.sin(now / 90) * 5 : (npc.type === "trouble" ? 46 : 40), 0, Math.PI * 2);
         ctx.stroke();
       }
 
@@ -1112,14 +1285,15 @@
         ctx.shadowBlur = 0;
       }
 
-      if (active && !isHit) {
+      if ((active || harassed) && !isHit) {
         ctx.font = "900 13px Arial";
         ctx.textAlign = "center";
-        ctx.fillStyle = npc.type === "trouble" ? "#ffe63e" : "#ffffff";
+        ctx.fillStyle = harassed ? "#ffef63" : (npc.type === "trouble" ? "#ffe63e" : "#ffffff");
         ctx.strokeStyle = "rgba(0,0,0,0.72)";
         ctx.lineWidth = 4;
-        ctx.strokeText(npc.type === "trouble" ? "ツッコミ" : "客引き", x, y - npc.r * 2.6);
-        ctx.fillText(npc.type === "trouble" ? "ツッコミ" : "客引き", x, y - npc.r * 2.6);
+        const actionText = harassed ? "救出!" : (npc.type === "trouble" ? "ツッコミ" : "客引き");
+        ctx.strokeText(actionText, x, y - npc.r * 2.6);
+        ctx.fillText(actionText, x, y - npc.r * 2.6);
 
         ctx.font = "900 12px Arial";
         ctx.strokeText(npc.label, x, y + 44);
@@ -1160,8 +1334,17 @@
       ctx.shadowBlur = 18;
       ctx.shadowColor = "#ffe63e";
       ctx.beginPath();
-      ctx.arc(0, 0, 34, 0, Math.PI * 2);
+      ctx.arc(0, 0, 34 + Math.min(18, player.upgradeLevel * 2), 0, Math.PI * 2);
       ctx.stroke();
+      if (comboStreak >= 2 && performance.now() < comboExpiresAt) {
+        ctx.strokeStyle = "#ff472d";
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = "#ff472d";
+        ctx.beginPath();
+        ctx.arc(0, 0, 44 + Math.sin(performance.now() / 80) * 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.fillStyle = "rgba(0,0,0,0.38)";
       ctx.beginPath();
       ctx.ellipse(0, 31, 31, 10, 0, 0, Math.PI * 2);
