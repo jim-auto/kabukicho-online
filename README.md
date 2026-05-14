@@ -4,11 +4,11 @@ Roblox向けの夜街ソーシャルアクションMMOプロトタイプです�
 
 ## Play Now
 
-GitHub Pages版のブラウザミニゲーム:
+GitHub Pages版のブラウザミニゲームです。下のリンクから遊べます。
 
-https://jim-auto.github.io/kabukicho-online/
+## [今すぐ遊ぶ / PLAY](https://jim-auto.github.io/kabukicho-online/)
 
-![Kabukicho Online demo](assets/demo/kabukicho-online-demo.gif)
+[![Kabukicho Online demo](assets/demo/kabukicho-online-demo.gif)](https://jim-auto.github.io/kabukicho-online/)
 
 このGIFはPlaywrightでGitHub Pages版を自動撮影したものです。背景には生成画像アセットを使っています。Roblox版はStudioでRojo同期後にPlayして確認します。
 
